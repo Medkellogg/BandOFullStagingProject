@@ -18,10 +18,19 @@ by Mark Kellogg 4/23/2020
 #define OUTBOUND false
 
 //--sensorInfo variables
-byte sensorReport = 0;
-boolean direction = INBOUND;
-boolean busy = false;
-boolean passedBy = false;
+byte mainSens_Report = 0;   //Bit 1 is written hi when mainOutValue is true 
+byte mainSens_LastReport = 0;
+byte mainSensTotal = 0;     //Totals value of mainSens_Report register 
+byte mainPassByTotal = 0;
+byte mainPassByState = false;
+byte mainInValue = 1;  //---Sensors report active low so initial setting is 1
+byte mainIn_LastValue = 1;
+byte mainOutValue = 1;
+byte mainOut_LastValue = 1;
+boolean throatDirection = INBOUND;
+boolean revloopDirction = INBOUND;
+boolean sensorsBusy = false;
+boolean sensorsPassedBy = false;
 
 
  
@@ -29,7 +38,7 @@ boolean passedBy = false;
 const int sensorWaitInterval = 6000;
 // Pins for LED and Button
 const int LEDpin = 13;
-const int mainSensInpin = 7, mainSensOutpin = 8, revSensInpin = 9, revSensOutpin = 12;
+const int mainSensInpin = 11, mainSensOutpin = 12, revSensInpin = 9, revSensOutpin = 10;
  
 // Used to track how long between "bounces"
 unsigned long previousmicrosMainIn = 0, previousmicrosMainOut = 0; 
@@ -55,15 +64,27 @@ void updateMainOutSens();
 void updateRevInSens();
 void updateRevOutSens();
 
+void readMainSens();
+void readMainOutSens();
+
+//DEBUG SECTION
+const int passByOff = 6;
+int passByToZero = 1;
+//----END DEBUG---------------
  
 // ---------------------------Void Setup------------------------------------
 void setup() {
   pinMode(LEDpin, OUTPUT);
-  pinMode(mainSensInpin, INPUT_PULLUP);
-  pinMode(mainSensOutpin, INPUT_PULLUP);
-  pinMode(revSensInpin, INPUT_PULLUP);
-  pinMode(revSensOutpin, INPUT_PULLUP);
+  pinMode(mainSensInpin, INPUT);
+  pinMode(mainSensOutpin, INPUT);
+  pinMode(revSensInpin, INPUT);
+  pinMode(revSensOutpin, INPUT);
+
+  //DEBUG Section
   Serial.begin(115200);
+  pinMode(passByOff, INPUT_PULLUP);
+  //----END DEBUG---------------
+
 }
 
 //------------------------------Void Loop------------------------------------
@@ -71,21 +92,34 @@ void setup() {
 
 void loop() 
 {
-  // This needs to be called periodically to
-  // update the timers and button status
-  
-  updateMainOutSens();
-  digitalWrite(mainSensOutpin, debouncedMainOutState);
+    readMainSens();
 
-  updateMainInSens();
-  // This replaces: digitalRead(BUTTONpin);
-  digitalWrite(mainSensInpin, debouncedMainInState);
+    //DEBUG but still needs work for post sensor time once code is combined
+    /*passByToZero = digitalRead(passByOff);
 
-  //updateRevInSens();
-  //digitalWrite(revSensInpin, debouncedRevInState);
+    if(passByToZero == 0){
+       mainPassByState = 0;
+      }
+    
+     if(mainPassByState == 0 && mainSensTotal == 0) mainPassByTotal = 0; 
+    */
+    //---DEBUG - all print routines here are debug
+    Serial.print("sensorReportOUT: ");   
+    Serial.println(mainSens_Report);
+    Serial.print("mainSensTotal: ");   
+    Serial.println(mainSensTotal);
+    Serial.print("mainPassByTotal: ");  
+    Serial.println(mainPassByTotal);
+    Serial.print("mainPassByState: ");  
+    Serial.println(mainPassByState);
+    Serial.print("passbyToZero: ");  
+    Serial.println(passByToZero);
+    
+    Serial.println();
 
-  //updateRevOutSens();
-  //digitalWrite(revSensOutpin, debouncedRevOutState);
+    
+    delay(500);
+    //--END DEBUG----------
 
 }
  
@@ -114,8 +148,8 @@ void updateMainInSens() {
       // the correct value. This allows for the code to handle active high or low inputs
       debouncedMainInState = digitalRead(mainSensInpin);
 
-      Serial.print("MainIN: ");
-      Serial.println(debouncedMainInState);
+      //Serial.print("MainIN: ");
+      //Serial.println(debouncedMainInState);
             // Go back to watching the button again.
       bounceMainInState = WATCH_BUTTON;
       
@@ -144,8 +178,8 @@ void updateMainOutSens()
       {
         debouncedMainOutState = digitalRead(mainSensOutpin);
       
-        Serial.print("MainOut: "); //debug
-        Serial.println(debouncedMainOutState); //debug
+        //Serial.print("MainOut: "); //debug
+        //Serial.println(debouncedMainOutState); //debug
 
         bounceMainOutState = WATCH_BUTTON;
       }
@@ -173,15 +207,15 @@ void updateRevInSens()
       {
         debouncedRevInState = digitalRead(revSensInpin);
       
-        Serial.print("RevIn: "); //debug
-        Serial.println(debouncedRevInState); //debug
-
+        //Serial.print("RevIn: "); //debug
+        //Serial.println(debouncedRevInState); //debug
+                
         bounceRevInState = WATCH_BUTTON;
       }
     }
 }  
 
-//-----------------------Reverse Loop OUTBOUND Sensor Function---------------------------------------------
+//-----------------------Reverse Loop OUTBOUND Sensor Function---------------------------------
 void updateRevOutSens() 
 {
   
@@ -202,10 +236,90 @@ void updateRevOutSens()
       {
         debouncedRevOutState = digitalRead(revSensOutpin);
       
-        Serial.print("RevOut: "); //debug
-        Serial.println(debouncedRevOutState); //debug
+        //Serial.print("RevOut: "); //debug
+        //Serial.println(debouncedRevOutState); //debug
+        //delay(500);
+
+        
 
         bounceRevOutState = WATCH_BUTTON;
       }
     }
-}  
+}
+
+  //-------------------------Function--readMainInsens-------------------
+
+  void readMainSens()
+  {
+    
+    /*--THIS CODE NEEDS TO BE RELOCATED INTO TRACK_ACTIVE OR HOUSEKEEP ONCE BRANCHES
+    ARE COMBINED--*/
+    passByToZero = digitalRead(passByOff);
+
+    if(passByToZero == 0){
+       mainPassByState = 0;
+      }
+     //----- End of code to be relocated
+
+     //--beginning of function 
+    //--------Reset Totals after train enters sensor zone but backs out-----
+     if(mainPassByState == 0 && mainSensTotal == 0) mainPassByTotal = 0; 
+    
+    updateMainInSens();
+    digitalWrite(mainSensInpin, debouncedMainInState);
+    mainInValue = debouncedMainInState;
+
+    if(mainInValue != mainIn_LastValue)
+    {
+      if(mainInValue == 0) { 
+        bitSet(mainSens_Report, 0);
+      }
+      else{
+        bitClear(mainSens_Report, 0);
+      }
+     mainIn_LastValue = mainInValue;
+    
+
+      if(mainSens_Report > 0) {
+        mainSensTotal = mainSensTotal + mainSens_Report;
+        mainPassByTotal = mainSensTotal;
+      
+      }
+      else{
+        mainSensTotal = 0;
+        
+      }
+    } 
+    updateMainOutSens();
+    digitalWrite(mainSensOutpin, debouncedMainOutState);
+    mainOutValue = debouncedMainOutState;
+
+    if(mainOutValue != mainOut_LastValue)
+    {
+      if(mainOutValue == 0) { 
+        bitSet(mainSens_Report, 1);
+      }
+      else{
+        bitClear(mainSens_Report, 1);
+      }
+      mainOut_LastValue = mainOutValue;
+
+    
+      if(mainSens_Report > 0) {    //This 
+        mainSensTotal = mainSensTotal + mainSens_Report;
+        mainPassByTotal = mainSensTotal;
+      }
+      else{
+        mainSensTotal = 0;
+        
+      }
+    }
+    if(mainSensTotal == 0 && mainPassByTotal == 6) {
+       mainPassByState = true;
+       mainPassByTotal = 0;
+    }
+  }
+
+
+
+ 
