@@ -1,15 +1,28 @@
 /* 
-Throat and reverse loop sensor module
-by Mark Kellogg 4/23/2020
+Jeroen Garritsen's B&O McKenzie Division - Staging Yard Project
+by: Mark Kellogg Began: 4/23/2020
 ---------------------------Github Repository------------------------------
 NAME:
 The repository has all code etc. along with flow control overview and 
 module graphics.  
 
-----------------------------Module Description-----------------------------
+Designed for use on Jeroen Gerrisen's B&O McKensie Div layout.
+A main control panel uses a Pro-Mini to set up active staging yard
+tracks with a second Pro-Mini to drive the rr-CirKits MotorMan 
+boards, control track power, etc. The project requires remote 
+control panels, so the second Pro_Mini is used to eliminate
+a large cable bundle to the remote panel.
+
+Panel
+
+Track power timer
+
+Entrance and Exit sensors - 
+
+----------------------------Track Sensors Descriptions--------------------
 All four staging yards have a single yard lead, from which all 
-the dead end staging tracks fan out.  The yard lead of three of the four yards
-continue on to a reverse loop.
+the dead end staging tracks fan out.  The yard lead of three of the four 
+yards continue on to a reverse loop.
 
  Sensors - The yard lead entry turnout and reverse loop turnout each have a 
  sensor pair to track entry and exits from that point.
@@ -42,10 +55,11 @@ continue on to a reverse loop.
    */
 
 #include <Arduino.h>
+#include <RotaryEncoder.h>
 
 //---------------------Debounce Routine Setup and explanation---------------------------
-// Buttons with Pull-Ups are "backwards"
-// Some DEFINEs to make reading code easier
+
+//--Buttons with Pull-Ups are "backwards": some DEFINEs to make reading code easier
 #define PUSHED false
 #define NOT_PUSHED true
 #define WATCH_BUTTON true
@@ -54,7 +68,40 @@ continue on to a reverse loop.
 //--sensorInfo to make code easier to read 
 #define INBOUND 1    
 #define OUTBOUND 2
-#define CLEAR 0 
+#define CLEAR 0
+
+//--RotaryEncoder DEFINEs for numbers of tracks to access with encoder
+#define ROTARYSTEPS 1
+#define ROTARYMIN 7
+#define ROTARYMAX 12
+
+//--- Setup a RotaryEncoder for pins A2 and A3:
+RotaryEncoder encoder(A2, A3);
+int lastPos = -1;                //--- Last known rotary position.
+const int rotarySwitch = 2;      /*---Setup Rotary Encoder switch on 
+                                  pin D2 - active low  */
+
+//------RotaryEncoder Setup and variables are in this section---------
+int tracknumChoice =  ROTARYMAX;
+int tracknumActive =  ROTARYMAX;
+int tracknumDisplay =  ROTARYMAX;
+int tracknumLast =  ROTARYMAX;
+
+//Rotary Encoder Switch Variables
+
+int knobPosition = ROTARYMAX;
+bool knobToggle = true;
+
+//---------------SETUP STATE Machine and State Functions----------------------
+enum {HOUSEKEEP, STAND_BY, TRACK_SETUP, TRACK_ACTIVE, OCCUPIED,} mode;
+
+void runHOUSEKEEP();
+void runSTAND_BY();
+void runTRACK_SETUP();
+void runTRACK_ACTIVE();
+void runOCCUPIED();
+
+void readEncoder();           //--Encoder Function------------------
 
 //-----Main sensorInfo variables-------
 byte mainSens_Report = 0;   //Bit 1 is written hi when mainOutValue is true 
@@ -148,21 +195,54 @@ void setup() {
   pinMode(revSensInpin, INPUT);
   pinMode(revSensOutpin, INPUT);
 
-  //DEBUG Section
+  encoder.setPosition(ROTARYMIN / ROTARYSTEPS); // start with the value of ROTARYMIN .
+
+  pinMode(rotarySwitch, INPUT_PULLUP);
+  mode = HOUSEKEEP;
+
   Serial.begin(115200);
+
+  //DEBUG Section - these are manual switches until functions are ready
   pinMode(mainPassByOff, INPUT_PULLUP);
   pinMode(revPassByOff, INPUT_PULLUP);
-
   //----END DEBUG---------------
 
-}
+  Serial.println("---ANOTHER INOVATIVE PRODUCT FROM THE B&O MckENZIE DIVISION---");
+  
+}  //End setup
 
 //------------------------------Void Loop------------------------------------
 
 
 void loop() 
 {
+    if (mode == HOUSEKEEP)
+  {
+    runHOUSEKEEP();
+  }
+
+  else if (mode == STAND_BY)
+  {
+       runSTAND_BY();
+  }
+
+  else if (mode == TRACK_SETUP)
+  {
+    runTRACK_SETUP();
+  }
+
+  else if (mode == TRACK_ACTIVE)
+  {
+    runTRACK_ACTIVE();
+  }
+
+  else if (mode == OCCUPIED)
+  {
+    runOCCUPIED();
+  }
+  
     
+    //--sensor module functions--
     readMainSens();
     readRevSens();
     rptMainSensActive(); // This will be used by state routines when necessary
@@ -218,12 +298,103 @@ void loop()
     Serial.println();
 
     delay(500); 
+    //--end debug-----------------------------------------*/
 
-    //--END DEBUG-----------------------------------------*/
-
-}
+}  //  END loop
  
-// ---------------Main INBOUND Sensor Function------------------
+/* ---------------State Machine Functions Section--------------
+                          BEGINS HERE
+--------------------------------------------------------------*/
+
+//--------------------HOUSEKEEP Function-----------------
+void runHOUSEKEEP()
+{
+  
+  Serial.println("HOUSEKEEP");
+  mode = STAND_BY;
+}  
+
+
+//-----------------------STAND_BY Function-----------------
+void runSTAND_BY()
+{
+  Serial.println("STAND_BY");
+  do
+  {
+    readEncoder();
+    knobToggle = digitalRead(rotarySwitch);
+
+    mode = STAND_BY;
+
+  } while (knobToggle == true);    //check rotary switch pressed to select a track
+
+  knobToggle = true;               //reset so readEncoder will run in stand_by next pass
+
+  mode = TRACK_SETUP;
+} 
+
+
+//-----------------------TRACK_SETUP Function-----------------------
+void runTRACK_SETUP()
+{
+  Serial.println("TRACK_SETUP");
+   
+  mode = TRACK_ACTIVE;
+  
+}
+
+
+//-----------------------TRACK_ACTIVE Function------------------
+void runTRACK_ACTIVE()
+{
+  Serial.println("TRACK_ACTIVE");
+  
+  mode = HOUSEKEEP;
+}
+
+
+//-------------------------OCCUPIED Function--------------------
+void runOCCUPIED()
+{
+  Serial.println("OCCUPIED");
+   
+  mode = HOUSEKEEP;
+   
+}
+
+//------------------------ReadEncoder Function----------------------
+
+void readEncoder()
+{
+  encoder.tick();
+
+    // get the current physical position and calc the logical position
+    int newPos = encoder.getPosition() * ROTARYSTEPS;
+
+    if (newPos < ROTARYMIN) {
+      encoder.setPosition(ROTARYMIN / ROTARYSTEPS);
+      newPos = ROTARYMIN;
+
+    } else if (newPos > ROTARYMAX) {
+      encoder.setPosition(ROTARYMAX / ROTARYSTEPS);
+      newPos = ROTARYMAX;
+    } // if
+
+    if (lastPos != newPos) {
+      Serial.print(newPos);
+      Serial.println();
+      lastPos = newPos;
+  }  
+  
+} // End State Machine Functions
+
+
+/* ---------------------Sensor Functions Section--------------
+                            BEGINS HERE
+--------------------------------------------------------------*/
+
+//---------------Main INBOUND Sensor Function------------------
+
 void updateMainInSens() {
   // We are waiting for any activity on the button
   if (bounceMainInState == WATCH_BUTTON) {
