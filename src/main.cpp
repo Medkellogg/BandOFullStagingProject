@@ -7,7 +7,7 @@ The repository has all code etc. along with flow control overview and
 module graphics.  
 
 ----------------------------Module Description-----------------------------
-All four staging yards have a single yard lead, off of which all 
+All four staging yards have a single yard lead, from which all 
 the dead end staging tracks fan out.  The yard lead of three of the four yards
 continue on to a reverse loop.
 
@@ -25,13 +25,15 @@ continue on to a reverse loop.
 
  Module Output- Each sensor pair returns: 
    Train Direction- mainDirection or revDirection: their output(s) are 
-   INBOUND, OUTBOUND, or CLEAR; and are active when the train is within the small sensor area.
+   INBOUND, OUTBOUND, or CLEAR; and are active when the train is within the 
+   small sensor area.
    
    Last Train Direction = main_LastDirection or rev_LastDirection with the same
    output(s) as above, which stays true until the next train activates the
    sensor pair.
 
-   Train PassBy - which senses the train has passed by the sensor completely in the direction it arrived from.  If a train backs out without completely
+   Train PassBy - which senses the train has passed by the sensor completely in 
+   the direction it arrived from.  If a train backs out without completely
    passing by PassBy will not report true. It stays active as long as the 
    train is within the sensor pair.
 
@@ -67,7 +69,9 @@ byte mainOut_LastValue = 1;
 
 byte mainDirection = 0;
 byte main_LastDirection = 0;
-boolean mainSensorsBusy = false;
+bool mainSensorsBusy = false;
+
+bool sensorsBusy = false;
 
 //-----revLoop sensorInfo variables-------
 byte revSens_Report = 0;   //Bit 1 is written hi when mainOutValue is true 
@@ -82,7 +86,8 @@ byte revOut_LastValue = 1;
 
 byte revDirection = 0;
 byte rev_LastDirection = 0;
-boolean revSensorsBusy = false;
+bool revSensorsBusy = false;
+
 
 
 
@@ -98,17 +103,17 @@ unsigned long previousmicrosMainIn = 0, previousmicrosMainOut = 0;
 unsigned long previousmicrosRevIn = 0, previousmicrosRevOut = 0; 
  
 // Used to track state of button (high or low)
-boolean previousMainInState = NOT_PUSHED, previousMainOutState = NOT_PUSHED;
-boolean previousRevInState = NOT_PUSHED, previousRevOutState = NOT_PUSHED;
+bool previousMainInState = NOT_PUSHED, previousMainOutState = NOT_PUSHED;
+bool previousRevInState = NOT_PUSHED, previousRevOutState = NOT_PUSHED;
  
 // Variable reporting de-bounced state.
-boolean debouncedMainInState = NOT_PUSHED, debouncedMainOutState = NOT_PUSHED;
-boolean debouncedRevInState = NOT_PUSHED, debouncedRevOutState = NOT_PUSHED;
+bool debouncedMainInState = NOT_PUSHED, debouncedMainOutState = NOT_PUSHED;
+bool debouncedRevInState = NOT_PUSHED, debouncedRevOutState = NOT_PUSHED;
 
  
 // Tracks if we are waiting for a "bounce" event
-boolean bounceMainInState = false, bounceMainOutState = false;
-boolean bounceRevInState = false, bounceRevOutState = false;
+bool bounceMainInState = false, bounceMainOutState = false;
+bool bounceRevInState = false, bounceRevOutState = false;
 
 
 //--------------Functions for each sensor-------------------------
@@ -123,6 +128,8 @@ void updateRevOutSens();
 void readRevSens();
 void rptRevDirection();
 void rptRevSensActive();
+
+void rptSensorsBusy();
 
 
 
@@ -158,12 +165,12 @@ void loop()
     
     readMainSens();
     readRevSens();
-    rptMainSensActive();
-    rptRevSensActive();
+    rptMainSensActive(); // This will be used by state routines when necessary
+    rptRevSensActive();  // This will be used by state routines when necessary
+    rptSensorsBusy();    // This will be used by state routines when necessary
     
     
-    
-    //*---DEBUG - all print routines here are debug
+    //---DEBUG - all print routines here are debug
     Serial.print("mainsensorReport: ");   
     Serial.print(mainSens_Report);
     Serial.print("     revSensorReport: ");   
@@ -190,10 +197,12 @@ void loop()
     Serial.println(revPassByToZero);
     Serial.println();
 
-    Serial.print("mainSensorBusy: ");  
+    Serial.print("rptMainSensActive: ");  
     Serial.print(mainSensorsBusy);
-    Serial.print("       revSensorBusy: ");  
+    Serial.print("       rptRevSensActive: ");  
     Serial.println(revSensorsBusy);
+    Serial.print("       rptSensorsBusy: ");  
+    Serial.println(sensorsBusy);
     Serial.println();
 
     Serial.print("MainDirection: ");
@@ -515,23 +524,33 @@ void updateRevOutSens()
 
 /*----------------------FUNCTIONS rptMainSensActive()------------------------
                                   rptRevSensActive()
-    These two functions report any presense of trains at the specific 
+                                  rptSensorsBusy()
+    TheMain and Rev functions report any presense of trains at the specific 
     sensor pair, one at the yard throat ("main"), or the other at the reverse
-    loop ("rev").  Unlike other sensor functions they are called separately, not within the main readMainSens or readRevSens function calls.
+    loop ("rev").  
+
+    rptSensorsBusy() checks state of both pairs of sensors at the same time.
+
+    Unlike other sensor functions these are all called separately, not within the main readMainSens or readRevSens function calls.
  --------------------------------------------------------------------------*/
 
 void rptMainSensActive()
 {
   if (mainSens_Report > 0) mainSensorsBusy = true;
-  else { mainSensorsBusy = false; }
+  else mainSensorsBusy = false;
 }
 
 
 void rptRevSensActive()
 {
-  if (revSens_Report > 0)revSensorsBusy = true;
-  else { revSensorsBusy = false; }
+  if (revSens_Report > 0) revSensorsBusy = true;
+  else revSensorsBusy = false; 
 }
-   
 
+
+void rptSensorsBusy()
+{
+  if ((revSens_Report > 0) || (mainSens_Report > 0)) sensorsBusy = true;
+  else sensorsBusy = false;
+}
  
