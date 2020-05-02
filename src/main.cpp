@@ -1,12 +1,13 @@
 /* 
 Jeroen Garritsen's B&O McKenzie Division - Staging Yard Project
-by: Mark Kellogg Began: 4/23/2020
+by: Mark Kellogg - Began: 4/23/2020
+
 ---------------------------Github Repository------------------------------
 NAME:
 The repository has all code etc. along with flow control overview and 
 module graphics.  
 
-Designed for use on Jeroen Gerrisen's B&O McKensie Div layout.
+Designed for use on Jeroen Gerrisen's B&O McKenzie Div layout.
 A main control panel uses a Pro-Mini to set up active staging yard
 tracks with a second Pro-Mini to drive the rr-CirKits MotorMan 
 boards, control track power, etc. The project requires remote 
@@ -88,82 +89,83 @@ int tracknumDisplay =  ROTARYMAX;
 int tracknumLast =  ROTARYMAX;
 
 //Rotary Encoder Switch Variables
-
 int knobPosition = ROTARYMAX;
 bool knobToggle = true;
+void readEncoder();           //--RotaryEncoder Function------------------
 
 //---------------SETUP STATE Machine and State Functions----------------------
 enum {HOUSEKEEP, STAND_BY, TRACK_SETUP, TRACK_ACTIVE, OCCUPIED,} mode;
-
 void runHOUSEKEEP();
 void runSTAND_BY();
 void runTRACK_SETUP();
 void runTRACK_ACTIVE();
 void runOCCUPIED();
+//-------------END State Machine
 
-void readEncoder();           //--Encoder Function------------------
 
 //-----Main sensorInfo variables-------
 byte mainSens_Report = 0;   //Bit 1 is written hi when mainOutValue is true 
-byte mainSens_LastReport = 0;
 byte mainSensTotal = 0;     //Totals value of mainSens_Report register 
 byte mainPassByTotal = 0;
 byte mainPassByState = false;
-byte mainInValue = 1;  //---Sensors report active low so initial setting is 1
-byte mainIn_LastValue = 1;
-byte mainOutValue = 1;
-byte mainOut_LastValue = 1;
-
+bool mainSensorsBusy = false;
+bool sensorsBusy = false;
 byte mainDirection = 0;
 byte main_LastDirection = 0;
-bool mainSensorsBusy = false;
-
-bool sensorsBusy = false;
 
 //-----revLoop sensorInfo variables-------
 byte revSens_Report = 0;   //Bit 1 is written hi when mainOutValue is true 
-byte revSens_LastReport = 0;
 byte revSensTotal = 0;     //Totals value of mainSens_Report register 
 byte revPassByTotal = 0;
 byte revPassByState = false;
-byte revInValue = 1;  //---Sensors report active low so initial setting is 1
-byte revIn_LastValue = 1;
-byte revOutValue = 1;
-byte revOut_LastValue = 1;
-
 byte revDirection = 0;
 byte rev_LastDirection = 0;
 bool revSensorsBusy = false;
 
-
-
-
- 
 // Time to wait for bounce, in MICROsconds
 const int sensorWaitInterval = 6000;
-// Pins for LED and Button
-const int LEDpin = 13;
+
+const int LEDpin = 13;  // debug
 const int mainSensInpin = 11, mainSensOutpin = 12, revSensInpin =10, revSensOutpin = 9;
  
-// Used to track how long between "bounces"
-unsigned long previousmicrosMainIn = 0, previousmicrosMainOut = 0; 
-unsigned long previousmicrosRevIn = 0, previousmicrosRevOut = 0; 
  
-// Used to track state of button (high or low)
-bool previousMainInState = NOT_PUSHED, previousMainOutState = NOT_PUSHED;
-bool previousRevInState = NOT_PUSHED, previousRevOutState = NOT_PUSHED;
- 
-// Variable reporting de-bounced state.
-bool debouncedMainInState = NOT_PUSHED, debouncedMainOutState = NOT_PUSHED;
-bool debouncedRevInState = NOT_PUSHED, debouncedRevOutState = NOT_PUSHED;
+// Variable reporting de-bounced state
 
- 
-// Tracks if we are waiting for a "bounce" event
-bool bounceMainInState = false, bounceMainOutState = false;
-bool bounceRevInState = false, bounceRevOutState = false;
+//moving all variables back here
+bool bounceMainInState = false;         // Tracks waiting for a "bounce" event
+bool previousMainInState = NOT_PUSHED;  // Track state of button (high or low)
+unsigned long previousmicrosMainIn = 0; // Track how long between "bounces"
+bool debouncedMainInState = NOT_PUSHED; 
+byte mainInValue = 1, mainIn_LastValue = 1;
+
+bool bounceMainOutState = false, previousMainOutState = NOT_PUSHED;
+unsigned long previousmicrosMainOut = 0;
+bool debouncedMainOutState = NOT_PUSHED; 
+byte mainOutValue = 1, mainOut_LastValue = 1;
+
+bool bounceRevInState = false, previousRevInState = NOT_PUSHED;
+unsigned long previousmicrosRevIn = 0;
+bool debouncedRevInState = NOT_PUSHED;
+byte revInValue = 1, revIn_LastValue = 1;
+
+bool bounceRevOutState = false, previousRevOutState = NOT_PUSHED;
+unsigned long previousmicrosRevOut = 0;
+bool debouncedRevOutState = NOT_PUSHED;
+byte revOutValue = 1, revOut_LastValue = 1;
 
 
-//--------------Functions for each sensor-------------------------
+
+
+
+
+
+/*--------------Functions for each sensor-------------------------
+  The first two functions are a compilation of all the others. They
+  are used in the state machine to report sensor activity.  
+------------------------------------------------------------------*/
+void readSensors();  
+void rptSensorsBusy();
+
 void updateMainInSens();
 void updateMainOutSens();
 void readMainSens();
@@ -176,9 +178,8 @@ void readRevSens();
 void rptRevDirection();
 void rptRevSensActive();
 
-void rptSensorsBusy();
 
-
+//-end of sensor functions---------------
 
 //DEBUG SECTION
 const int mainPassByOff = 7;  // green wire main
@@ -243,14 +244,14 @@ void loop()
   
     
     //--sensor module functions--
-    readMainSens();
+    /*readMainSens();
     readRevSens();
     rptMainSensActive(); // This will be used by state routines when necessary
     rptRevSensActive();  // This will be used by state routines when necessary
     rptSensorsBusy();    // This will be used by state routines when necessary
+    */
     
-    
-    //---DEBUG - all print routines here are debug
+    /*---DEBUG - all print routines here are debug
     Serial.print("mainsensorReport: ");   
     Serial.print(mainSens_Report);
     Serial.print("     revSensorReport: ");   
@@ -298,7 +299,7 @@ void loop()
     Serial.println();
 
     delay(500); 
-    //--end debug-----------------------------------------*/
+    --end debug-----------------------------------------*/
 
 }  //  END loop
  
@@ -310,7 +311,8 @@ void loop()
 void runHOUSEKEEP()
 {
   
-  Serial.println("HOUSEKEEP");
+  Serial.println();
+  Serial.println("HOUSEKEEP-------------------------");
   mode = STAND_BY;
 }  
 
@@ -318,10 +320,22 @@ void runHOUSEKEEP()
 //-----------------------STAND_BY Function-----------------
 void runSTAND_BY()
 {
-  Serial.println("STAND_BY");
-  do
+  Serial.println("-----STAND_BY");
+
+  readSensors();
+  rptSensorsBusy();
+  delay(10);
+
+  if (sensorsBusy == true)
+  {
+     Serial.println("----------------------------------");
+     runOCCUPIED();
+  }
+  
+do
   {
     readEncoder();
+   
     knobToggle = digitalRead(rotarySwitch);
 
     mode = STAND_BY;
@@ -331,14 +345,32 @@ void runSTAND_BY()
   knobToggle = true;               //reset so readEncoder will run in stand_by next pass
 
   mode = TRACK_SETUP;
+  
+  
 } 
 
 
 //-----------------------TRACK_SETUP Function-----------------------
 void runTRACK_SETUP()
 {
-  Serial.println("TRACK_SETUP");
-   
+  Serial.println("----------TRACK_SETUP");
+
+  //---read sensors - go to OCCUPIED if busy---
+  readSensors();
+  rptSensorsBusy();
+  delay(10);
+
+  if (sensorsBusy == true)
+  {
+     Serial.println("----------------------------------");
+     runOCCUPIED();
+  }  // end read sensors
+
+  
+
+
+
+
   mode = TRACK_ACTIVE;
   
 }
@@ -347,7 +379,7 @@ void runTRACK_SETUP()
 //-----------------------TRACK_ACTIVE Function------------------
 void runTRACK_ACTIVE()
 {
-  Serial.println("TRACK_ACTIVE");
+  Serial.println("---------------TRACK_ACTIVE-----");
   
   mode = HOUSEKEEP;
 }
@@ -356,9 +388,22 @@ void runTRACK_ACTIVE()
 //-------------------------OCCUPIED Function--------------------
 void runOCCUPIED()
 {
+  do
+  {
   Serial.println("OCCUPIED");
-   
-  mode = HOUSEKEEP;
+  delay(20);
+
+  readMainSens();
+  readRevSens();
+  rptSensorsBusy();
+  delay(10);
+
+  } while (sensorsBusy == true);
+  
+  Serial.println("-------LEAVING OCCUPIED----------------");
+  
+  runSTAND_BY();
+  
    
 }
 
@@ -384,6 +429,8 @@ void readEncoder()
       Serial.print(newPos);
       Serial.println();
       lastPos = newPos;
+      tracknumChoice = newPos;
+
   }  
   
 } // End State Machine Functions
@@ -396,18 +443,20 @@ void readEncoder()
 //---------------Main INBOUND Sensor Function------------------
 
 void updateMainInSens() {
+   
+
   // We are waiting for any activity on the button
   if (bounceMainInState == WATCH_BUTTON) {
-    // Get and store current button state
+       //--- Get and store current button state
     boolean currentMainInState = digitalRead(mainSensInpin);
-    // Check to see if a transition has occured (and only one)
+      //--- Check to see if a transition has occured (and only one)
     if (previousMainInState != currentMainInState) {
       // A transition was detected, ignore the others for a while
       bounceMainInState = IGNORE_BUTTON;
       // Store current time (start the clock)
       previousmicrosMainIn = micros();
     }
-    // Keep storing existing button state, if we're watching
+      // Keep storing existing button state, if we're watching
     previousMainInState = currentMainInState;
   }
   // We are waiting for the buttonWaitInterval to elapse
@@ -427,7 +476,9 @@ void updateMainInSens() {
 }
 //-----------------------Main OUTBOUND Sensor Function---------------------------------------------
 void updateMainOutSens() 
-{  
+{
+    
+
     if (bounceMainOutState == WATCH_BUTTON) 
     {
       boolean currentMainOutState = digitalRead(mainSensOutpin);
@@ -452,6 +503,8 @@ void updateMainOutSens()
 //-----------------------Reverse Loop INBOUND Sensor Function---------------------------------------------
 void updateRevInSens() 
 {
+    
+
   if (bounceRevInState == WATCH_BUTTON) 
     {
       boolean currentRevInState = digitalRead(revSensInpin);
@@ -476,6 +529,8 @@ void updateRevInSens()
 //-----------------------Reverse Loop OUTBOUND Sensor Function---------------------------------
 void updateRevOutSens() 
 {
+    
+
     if (bounceRevOutState == WATCH_BUTTON) 
     {
       boolean currentRevOutState = digitalRead(revSensOutpin);
@@ -512,6 +567,9 @@ void updateRevOutSens()
 
      //--beginning of function 
     //--------Reset Totals after train enters sensor zone but backs out-----
+
+    
+
      if(mainPassByState == 0 && mainSensTotal == 0) mainPassByTotal = 0; 
     
     updateMainInSens();
@@ -581,7 +639,10 @@ void updateRevOutSens()
 
      //--beginning of function 
     //--------Reset Totals after train enters sensor zone but backs out-----
-     if(revPassByState == 0 && revSensTotal == 0) revPassByTotal = 0; 
+
+    
+
+    if(revPassByState == 0 && revSensTotal == 0) revPassByTotal = 0; 
     
     updateRevInSens();
     digitalWrite(revSensInpin, debouncedRevInState);
@@ -648,7 +709,7 @@ void updateRevOutSens()
   ------------------------------------------------------------------*/
 
   void rptMainDirection() 
-  {
+  { 
     if ((mainSensTotal == OUTBOUND) && (mainSens_Report = OUTBOUND)) {
       mainDirection = OUTBOUND;
       main_LastDirection = mainDirection;
@@ -725,3 +786,8 @@ void rptSensorsBusy()
   else sensorsBusy = false;
 }
  
+ void readSensors()
+ {
+   readMainSens();
+   readRevSens();
+  }
