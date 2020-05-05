@@ -70,6 +70,8 @@ yards continue on to a reverse loop.
 #define INBOUND 1    
 #define OUTBOUND 2
 #define CLEAR 0
+#define ON 0
+#define OFF 1
 
 //--RotaryEncoder DEFINEs for numbers of tracks to access with encoder
 #define ROTARYSTEPS 1
@@ -90,7 +92,7 @@ int tracknumLast =  ROTARYMAX;
 
 //Rotary Encoder Switch Variables
 int knobPosition = ROTARYMAX;
-bool knobToggle = true;
+bool knobToggle = true;       //active low 
 void readEncoder();           //--RotaryEncoder Function------------------
 
 //---------------SETUP STATE Machine and State Functions----------------------
@@ -101,6 +103,8 @@ void runTRACK_SETUP();
 void runTRACK_ACTIVE();
 void runOCCUPIED();
 //-------------END State Machine
+
+byte railPower = ON;
 
 
 //-----Main sensorInfo variables-------
@@ -251,7 +255,7 @@ void loop()
     rptSensorsBusy();    // This will be used by state routines when necessary
     */
     
-    /*---DEBUG - all print routines here are debug
+    //---DEBUG - all print routines here are debug
     Serial.print("mainsensorReport: ");   
     Serial.print(mainSens_Report);
     Serial.print("     revSensorReport: ");   
@@ -299,7 +303,7 @@ void loop()
     Serial.println();
 
     delay(500); 
-    --end debug-----------------------------------------*/
+    //--end debug-----------------------------------------
 
 }  //  END loop
  
@@ -313,6 +317,17 @@ void runHOUSEKEEP()
   
   Serial.println();
   Serial.println("HOUSEKEEP-------------------------");
+
+  railPower = OFF;
+  //Serial.print("railPower Status: ");
+  //Serial.println(railPower);
+
+  tracknumChoice = tracknumActive;
+  //Serial.print("Make Active track the display track: ");
+  //Serial.println(tracknumActive);
+  delay(1000);
+
+
   mode = STAND_BY;
 }  
 
@@ -322,15 +337,7 @@ void runSTAND_BY()
 {
   Serial.println("-----STAND_BY");
 
-  readSensors();
-  rptSensorsBusy();
-  delay(10);
-
-  if (sensorsBusy == true)
-  {
-     Serial.println("----------------------------------");
-     runOCCUPIED();
-  }
+  
   
 do
   {
@@ -340,9 +347,17 @@ do
 
     mode = STAND_BY;
 
-  } while (knobToggle == true);    //check rotary switch pressed to select a track
+  } while (knobToggle == true);    //check rotary switch pressed to select a track (active low)
 
   knobToggle = true;               //reset so readEncoder will run in stand_by next pass
+
+  readSensors();
+  
+  if (sensorsBusy == true)
+  {
+     Serial.println("------to Occupied from Standy-----------");
+     runOCCUPIED();
+  }
 
   mode = TRACK_SETUP;
   
@@ -354,24 +369,30 @@ do
 void runTRACK_SETUP()
 {
   Serial.println("----------TRACK_SETUP");
-
-  //---read sensors - go to OCCUPIED if busy---
-  readSensors();
-  rptSensorsBusy();
-  delay(10);
-
-  if (sensorsBusy == true)
-  {
-     Serial.println("----------------------------------");
-     runOCCUPIED();
-  }  // end read sensors
-
   
+  railPower = OFF;
+  delay(1000);
+  //Serial.print("railPower Status: ");
+  //Serial.println(railPower);
 
+  tracknumActive = tracknumChoice;
+  //Serial.print("trackNumActive: ");
+  //Serial.println(tracknumActive);
+  //Serial.println("WAIT 8 seconds for Tortoises to operate.");
+  delay(8000);
 
+  railPower = ON;
+  //Serial.print("railPower Status: ");
+  //Serial.println(railPower);
 
-
+  //TODO check for knobToggle - back to Standby if true
+  //Serial.println("GO BACK to STANDBY if Knob Click - Leave selection ");
+  delay(100);
+  
+  
+  
   mode = TRACK_ACTIVE;
+  
   
 }
 
@@ -380,7 +401,28 @@ void runTRACK_SETUP()
 void runTRACK_ACTIVE()
 {
   Serial.println("---------------TRACK_ACTIVE-----");
+
   
+  readSensors();
+  //Serial.print("Sensor Busy Track Active: ");
+  //Serial.println(sensorsBusy);
+  if (sensorsBusy == true)
+  {
+     Serial.println("-------to Occupied from Track Active-------");
+     runOCCUPIED();
+  }  // end read sensors
+
+  //start timer here
+  //Serial.println("Big Timer starts here for 10 seconds");
+  //Serial.println("Check and disply DIRECTION");
+
+  delay(10000);
+
+
+
+  //TODO check for knobToggle - back to Standby if true
+  //Serial.println("Check Click: ");
+
   mode = HOUSEKEEP;
 }
 
@@ -388,23 +430,21 @@ void runTRACK_ACTIVE()
 //-------------------------OCCUPIED Function--------------------
 void runOCCUPIED()
 {
-  do
-  {
+  do {
   Serial.println("OCCUPIED");
   delay(20);
 
-  readMainSens();
-  readRevSens();
-  rptSensorsBusy();
+  readSensors();
+  //rptSensorsBusy();
   delay(10);
+  }
 
-  } while (sensorsBusy == true);
+  while (sensorsBusy == true);
   
   Serial.println("-------LEAVING OCCUPIED----------------");
   
   runSTAND_BY();
-  
-   
+     
 }
 
 //------------------------ReadEncoder Function----------------------
@@ -578,21 +618,15 @@ void updateRevOutSens()
 
     if(mainInValue != mainIn_LastValue)
     {
-      if(mainInValue == 0) { 
-        bitSet(mainSens_Report, 0);
-      }
-      else{
-        bitClear(mainSens_Report, 0);
-      }
-     mainIn_LastValue = mainInValue;
+      if(mainInValue == 0) { bitSet(mainSens_Report, 0);}
+      else { bitClear(mainSens_Report, 0);}
+      mainIn_LastValue = mainInValue;
     
       if(mainSens_Report > 0) {
         mainSensTotal = mainSensTotal + mainSens_Report;
         mainPassByTotal = mainSensTotal;
       }
-      else{
-        mainSensTotal = 0;
-      }
+      else { mainSensTotal = 0; }
     } 
     updateMainOutSens();
     digitalWrite(mainSensOutpin, debouncedMainOutState);
@@ -600,21 +634,16 @@ void updateRevOutSens()
 
     if(mainOutValue != mainOut_LastValue)
     {
-      if(mainOutValue == 0) { 
-        bitSet(mainSens_Report, 1);
-      }
-      else{
-        bitClear(mainSens_Report, 1);
-      }
+      if(mainOutValue == 0) { bitSet(mainSens_Report, 1);}
+      else { bitClear(mainSens_Report, 1); }
+      
       mainOut_LastValue = mainOutValue;
 
-      if(mainSens_Report > 0) {    //This 
+      if(mainSens_Report > 0) {    
         mainSensTotal = mainSensTotal + mainSens_Report;
         mainPassByTotal = mainSensTotal;
       }
-      else{
-        mainSensTotal = 0;
-      }
+      else { mainSensTotal = 0; }
     }
 
     if(mainSensTotal == 0 && mainPassByTotal == 6) {
@@ -667,10 +696,11 @@ void updateRevOutSens()
       }
     }
 
-    updateRevOutSens();
+    updateRevOutSens();    //--read sensors
     digitalWrite(revSensOutpin, debouncedRevOutState);
     revOutValue = debouncedRevOutState;
 
+    //--check for change and write bits to register
     if(revOutValue != revOut_LastValue)
     {
       if(revOutValue == 0) { 
@@ -681,6 +711,7 @@ void updateRevOutSens()
       }
       revOut_LastValue = revOutValue;
 
+    //---check passBy status
       if(revSens_Report > 0) {    //This 
         revSensTotal = revSensTotal + revSens_Report;
         revPassByTotal = revSensTotal;
@@ -692,6 +723,7 @@ void updateRevOutSens()
     if(revSensTotal == 0 && revPassByTotal == 6) {
        revPassByState = true;
        revPassByTotal = 0;
+     //--end passBy
     }
     rptRevDirection();
   }
@@ -789,5 +821,15 @@ void rptSensorsBusy()
  void readSensors()
  {
    readMainSens();
+   delay(100);
    readRevSens();
+   delay(100);
+   //readMainSens();
+   //delay(100);
+   //readRevSens();
+   //delay(100);
+   rptSensorsBusy();
+   delay(100);
+   //rptSensorsBusy();
+   //delay(100);
   }
