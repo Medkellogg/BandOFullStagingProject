@@ -1,59 +1,57 @@
-/* 
-Jeroen Garritsen's B&O McKenzie Division - Staging Yard Project
-by: Mark Kellogg - Began: 4/23/2020
-
----------------------------Github Repository------------------------------
-NAME:
-The repository has all code etc. along with flow control overview and 
-module graphics.  
-
-Designed for use on Jeroen Gerrisen's B&O McKenzie Div layout.
-A main control panel uses a Pro-Mini to set up active staging yard
-tracks with a second Pro-Mini to drive the rr-CirKits MotorMan 
-boards, control track power, etc. The project requires remote 
-control panels, so the second Pro_Mini is used to eliminate
-a large cable bundle to the remote panel.
-
-Panel
-
-Track power timer
-
-Entrance and Exit sensors - 
-
-----------------------------Track Sensors Descriptions--------------------
-All four staging yards have a single yard lead, from which all 
-the dead end staging tracks fan out.  The yard lead of three of the four 
-yards continue on to a reverse loop.
-
- Sensors - The yard lead entry turnout and reverse loop turnout each have a 
- sensor pair to track entry and exits from that point.
-
- Sensor Names - Sensors are named "mainSens" for the yard throat, and 
- "revSens" for the reverse loop leadout.
-
- Direction Naming Convention - In all cases you may think of a point "between"
- the yard lead turnout and the reverse loop turnout as the center of the
- universe.  Therefore INBOUND is always towards that point on either sensor
- and OUTBOUND obviously the reverse.   
-
-
- Module Output- Each sensor pair returns: 
-   Train Direction- mainDirection or revDirection: their output(s) are 
-   INBOUND, OUTBOUND, or CLEAR; and are active when the train is within the 
-   small sensor area.
-   
-   Train PassBy - which senses the train has passed by the sensor completely in 
-   the direction it arrived from.  If a train backs out without completely
-   passing by PassBy will not report true. It stays active as long as the 
-   train is within the sensor pair.
-
-   Sensor Busy - Sensor reports busy when either of the sensor pair is true
-   and remains so only until the both go false.
-   */
+//Jeroen Garritsen's B&O McKenzie Division - Staging Yard Project
+//by: Mark Kellogg - Began: 4/23/2020
+//
+//---------------------------Github Repository------------------------------
+// NAME:
+// The repository has all code etc. along with flow control overview and 
+// module graphics.  
+//
+// Designed for use on Jeroen Gerrisen's B&O McKenzie Div layout.
+// A main control panel uses a Pro-Mini to set up active staging yard
+// tracks with a second Pro-Mini to drive the rr-CirKits MotorMan 
+// boards, control track power, etc. The project requires remote 
+// control panels, so the second Pro_Mini is used to eliminate
+// a large cable bundle to the remote panel.
+//
+// Panel
+//
+// Track power timer
+//
+// Entrance and Exit sensors - 
+//
+//----------------------------Track Sensors Descriptions--------------------
+// All four staging yards have a single yard lead, from which all 
+// the dead end staging tracks fan out.  The yard lead of three of the four 
+// yards continue on to a reverse loop.
+//
+//   Sensors - The yard lead entry turnout and reverse loop turnout each have a 
+//   sensor pair to track entry and exits from that point.
+//
+//   Sensor Names - Sensors are named "mainSens" for the yard throat, and 
+//   "revSens" for the reverse loop leadout.
+//
+//   Direction Naming Convention - In all cases you may think of a point "between"
+//   the yard lead turnout and the reverse loop turnout as the center of the
+//   universe.  Therefore INBOUND is always towards that point on either sensor
+//   and OUTBOUND obviously the reverse.   
+//
+//
+// Module Output- Each sensor pair returns: 
+//   Train Direction- mainDirection or revDirection: their output(s) are 
+//   INBOUND, OUTBOUND, or CLEAR; and are active when the train is within the 
+//   small sensor area.
+//   
+//   Train PassBy - which senses the train has passed by the sensor completely in 
+//   the direction it arrived from.  If a train backs out without completely
+//   passing by PassBy will not report true. It stays active as long as the 
+//   train is within the sensor pair.
+//
+//   Sensor Busy - Sensor reports busy when either of the sensor pair is true
+//   and remains so only until the both go false.
+//---------------------------------------------------------------------------
 
 #include <Arduino.h>
 #include <RotaryEncoder.h>
-#include "Ticker.h"
 #include <Bounce2.h>
 
 //------------Setup sensor debounce from Bounce2 library-----
@@ -79,11 +77,15 @@ Bounce debouncer3 = Bounce(); Bounce debouncer4 = Bounce();
 #define ROTARYMIN 7
 #define ROTARYMAX 12
 
+
+
+
+
 //--- Setup a RotaryEncoder for pins A2 and A3:
 RotaryEncoder encoder(A2, A3);
 int lastPos = -1;                //--- Last known rotary position.
-const int rotarySwitch = 2;      /*---Setup Rotary Encoder switch on 
-                                  pin D2 - active low  */
+const int rotarySwitch = 2;      //---Setup Rotary Encoder switch on 
+                                 //   pin D2 - active low ----------- 
 
 //------RotaryEncoder Setup and variables are in this section---------
 int tracknumChoice =  ROTARYMAX;
@@ -103,10 +105,12 @@ void runSTAND_BY();
 void runTRACK_SETUP();
 void runTRACK_ACTIVE();
 void runOCCUPIED();
-//-------------END State Machine
 
+void leaveTrack_Setup();
+void leaveTrack_Active();
+
+//---State Machine Variables
 byte railPower = ON;
-
 
 //---Sensor variables
 byte mainSensTotal = 0, mainSens_Report = 0; 
@@ -142,7 +146,7 @@ int revPassByToZero = 1;
 //----END DEBUG---------------
 
 
-//---Function Declarations---------------
+//---Sensor Function Declarations---------------
 int readMainSens();
 int readRevSens();
 byte rptMainDirection();
@@ -154,7 +158,6 @@ bool readAllSens();
 // ---------------------------Void Setup------------------------------------
 void setup() {
   
-
   //---Setup the button (using external pull-up) :
   pinMode(mainSensInpin, INPUT); pinMode(mainSensOutpin, INPUT);
   pinMode(revSensInpin, INPUT);  pinMode(revSensOutpin, INPUT);
@@ -171,7 +174,7 @@ void setup() {
   pinMode(LED_PIN, OUTPUT);
   //----END DEBUG---------------
 
-  encoder.setPosition(ROTARYMIN / ROTARYSTEPS); // start with the value of ROTARYMIN .
+  encoder.setPosition(ROTARYMIN / ROTARYSTEPS); // start with the value of ROTARYMIN 
 
   pinMode(rotarySwitch, INPUT_PULLUP);
   mode = HOUSEKEEP;
@@ -181,7 +184,7 @@ void setup() {
   
 }  //End setup
 
-//------------------------------Void Loop------------------------------------
+//------------------------------Void Loop-----------------------
 
 
 void loop() 
@@ -193,11 +196,12 @@ void loop()
 
   else if (mode == STAND_BY)
   {
-       runSTAND_BY();
+    runSTAND_BY();
   }
 
   else if (mode == TRACK_SETUP)
   {
+    
     runTRACK_SETUP();
   }
 
@@ -212,7 +216,7 @@ void loop()
   }
   
 
-  //---debug-Check new sensor module
+  /*---debug-Check new sensor module
   entry_ExitBusy = readAllSens();
   getMainDirection = rptMainDirection();
   getRevLoopDirection = rptRevDirection();
@@ -228,7 +232,7 @@ void loop()
     if(revPassByToZero == 0){
        revPassByState = 0;
       }  
-    
+    */
   //----debug terminal print----------------
       /*
       Serial.print("mainOutValue: ");
@@ -246,7 +250,7 @@ void loop()
       Serial.print("mainPassByTotal: ");
       Serial.print(mainPassByTotal);
       Serial.print("     revPassByTotal: ");
-      Serial.println(revPassByTotal); */
+      Serial.println(revPassByTotal); 
       Serial.print("mainPassByState: ");
       Serial.print(mainPassByState);
       Serial.print("     revPassByState: ");
@@ -256,7 +260,7 @@ void loop()
       Serial.print("getLineDirection: ");
       Serial.print(getMainDirection);  
       Serial.print("   revLoopDirection: ");
-      Serial.println(getRevLoopDirection);  /*
+      Serial.println(getRevLoopDirection);  
       Serial.print("main_LastDirection: ");
       Serial.print(main_LastDirection);
       Serial.print("   rev_lastDirection: ");
@@ -269,9 +273,11 @@ void loop()
 
 }  //  END void loop
  
-/* ---------------State Machine Functions Section--------------
-                          BEGINS HERE
---------------------------------------------------------------*/
+// ---------------State Machine Functions Section----------------//
+//                          BEGINS HERE                          //
+//---------------------------------------------------------------//
+
+
 
 //--------------------HOUSEKEEP Function-----------------
 void runHOUSEKEEP()
@@ -289,7 +295,7 @@ void runHOUSEKEEP()
   //Serial.println(tracknumActive);
   //delay(1000);
 
-
+  //runSTAND_BY();
   mode = STAND_BY;
 }  
 
@@ -303,10 +309,11 @@ void runSTAND_BY()
   
 do
   {
+    
     readEncoder();
    
     knobToggle = digitalRead(rotarySwitch);
-
+    
     mode = STAND_BY;
 
   } while (knobToggle == true);    //check rotary switch pressed to select a track (active low)
@@ -321,34 +328,43 @@ do
 } 
 
 
-//-----------------------TRACK_SETUP Function-----------------------
+//-----------------------TRACK_SETUP Functions-----------------------
 void runTRACK_SETUP()
 {
-  Serial.println("----------TRACK_SETUP");
+  //entry_ExitBusy = readAllSens();
   
-  railPower = OFF;
-  delay(1000);
-  //Serial.print("railPower Status: ");
-  //Serial.println(railPower);
+  Serial.println("----------TRACK_SETUP--------");
+  Serial.print("entry_ExitBusy: ");
+  Serial.println(entry_ExitBusy);
 
-  tracknumActive = tracknumChoice;
-  //Serial.print("trackNumActive: ");
-  //Serial.println(tracknumActive);
-  //Serial.println("WAIT 8 seconds for Tortoises to operate.");
-  delay(8000);
+  delay(3000);
+    
+  
+  Serial.print("entry_ExitBusy: ");
+  Serial.println(entry_ExitBusy);
 
-  railPower = ON;
-  //Serial.print("railPower Status: ");
-  //Serial.println(railPower);
+  leaveTrack_Setup();
+ 
 
-  //TODO check for knobToggle - back to Standby if true
-  //Serial.println("GO BACK to STANDBY if Knob Click - Leave selection ");
-  delay(100);
+}  //---end track setup function-------------------
+
+
+void leaveTrack_Setup()
+{
+  if( entry_ExitBusy == true)
   
-  
-  
-  mode = TRACK_ACTIVE;
-  
+  {
+    Serial.println("----to OCCUPIED from Setup---");
+    //mode = OCCUPIED;
+    runOCCUPIED();
+  }
+  else 
+  {
+    Serial.println("--times up going on--");
+
+    mode = TRACK_ACTIVE;
+    //runTRACK_ACTIVE();
+  }
   
 }
 
@@ -356,33 +372,65 @@ void runTRACK_SETUP()
 //-----------------------TRACK_ACTIVE Function------------------
 void runTRACK_ACTIVE()
 {
+  entry_ExitBusy = readAllSens();
   Serial.println("---------------TRACK_ACTIVE-----");
+  Serial.print("entry_ExitBusy: ");
+  Serial.println(entry_ExitBusy);
 
   
   
 
   delay(10000);
 
-
-
   //TODO check for knobToggle - back to Standby if true
   //Serial.println("Check Click: ");
 
-  mode = HOUSEKEEP;
-}
+  leaveTrack_Active();
 
+  //mode = HOUSEKEEP;
+  //runHOUSEKEEP()
+
+}  //--end runTrack_Active---
+
+void leaveTrack_Active()
+{
+  if( entry_ExitBusy == true)
+  {
+    Serial.println("----to OCCUPIED from Active---");
+    mode = OCCUPIED;
+    
+  }
+  else 
+  {
+    Serial.println("--times up, going on from Track_Active----");
+    mode = HOUSEKEEP;
+    runHOUSEKEEP();
+  }
+}
 
 //-------------------------OCCUPIED Function--------------------
 void runOCCUPIED()
 {
   Serial.println("OCCUPIED");
-  delay(20);
+  //delay(20);
 
+  entry_ExitBusy = readAllSens();
+  Serial.print("entry_ExitBusy: ");
+  Serial.println(entry_ExitBusy);
+
+  if( entry_ExitBusy == true)
+  {
+    Serial.println("----to OCCUPIED from OCCUPIED---");
+    //mode = OCCUPIED;
+    runOCCUPIED();
+  }
+  else 
+  {    
+   Serial.println("-------LEAVING OCCUPIED----------------");
+   runSTAND_BY();
+  }
   
   
-  Serial.println("-------LEAVING OCCUPIED----------------");
-  
-  runSTAND_BY();
      
 }
 
@@ -414,11 +462,13 @@ void readEncoder()
 }     
 
 
-/*---------------Updating Sensor Functions----------------------
-  All in this section update and track sensor information: Busy,
-  Direction, PassBy.  Only the mainOut sensor is documented.  The
-  remaining three work identically.
-  ------------------------------end of note---------------------*/
+
+
+//---------------------Updating Sensor Functions------------------
+//  All in this section update and track sensor information: Busy,
+//  Direction, PassBy.  Only the mainOut sensor is documented.  
+//  The remaining three work identically.
+//------------------------------end of note-----------------------
 
 int readMainSens() {
   debouncer1.update();  
@@ -439,7 +489,7 @@ int readMainSens() {
     }
     
   
-  debouncer2.update();  //read Out sensor
+  debouncer2.update();  //read mainOut sensor
   int mainOutValue = debouncer2.read();
 
       //---update history register:*Sens_Report    
@@ -457,58 +507,65 @@ int readMainSens() {
       }
       else mainSensTotal = 0; 
     }
-      /*---PassByTotal of "6" means train has cleared the sensor success-
-           fully.  Only done once at the end of each "read"*"Sens()".---*/
+    //---PassByTotal of "6" means train has cleared the sensor success-
+    //  fully.  If train were to back out of sensors the sensors would
+    //  fire and up the count, the condition would not ever be met.
+    //---------end of note------  
 
-    if(mainSensTotal == 0 && mainPassByTotal == 6) {
+    if(mainSensTotal == 0 && mainPassByTotal == 6) 
+      {
        mainPassByState = true;
        mainPassByTotal = 0;
       }
     else if(mainSensTotal == 0) mainPassByTotal = 0;
-      
-  
+       
   return mainSensTotal;
 }  // end readMainSen--
 
-int readRevSens() {  
+int readRevSens() 
+{  
   debouncer3.update();
   int revInValue = debouncer3.read();
     
   if(revInValue != revIn_LastValue)     
+  {
+    if(revInValue == 0) bitSet(revSens_Report, 0);
+    else bitClear(revSens_Report, 0); 
+
+    revIn_LastValue = revInValue;
+
+     if (revSens_Report > 0) 
     {
-      if(revInValue == 0) bitSet(revSens_Report, 0);
-      else bitClear(revSens_Report, 0); 
-
-      revIn_LastValue = revInValue;
-
-      if (revSens_Report > 0) {
-        revSensTotal = revSensTotal + revSens_Report;
-        revPassByTotal = revSensTotal;
-      }
-      else revSensTotal = 0;   
+      revSensTotal = revSensTotal + revSens_Report;
+      revPassByTotal = revSensTotal;
     }
+    else revSensTotal = 0;   
+  }
       
   debouncer4.update();
   int revOutValue = debouncer4.read();
     
   if(revOutValue != revOut_LastValue)     
+  {
+    if(revOutValue == 0) bitSet(revSens_Report, 1);
+    else bitClear(revSens_Report, 1); 
+
+    revOut_LastValue = revOutValue;
+
+    if (revSens_Report > 0) 
     {
-      if(revOutValue == 0) bitSet(revSens_Report, 1);
-      else bitClear(revSens_Report, 1); 
-
-      revOut_LastValue = revOutValue;
-
-      if (revSens_Report > 0) {
-        revSensTotal = revSensTotal + revSens_Report;
-        revPassByTotal = revSensTotal;
-      }
-      else revSensTotal = 0; 
+      revSensTotal = revSensTotal + revSens_Report;
+      revPassByTotal = revSensTotal;
     }
-    if(revSensTotal == 0 && revPassByTotal == 6) {
-       revPassByState = true;
-       revPassByTotal = 0;
-      }
+    else revSensTotal = 0; 
+  }
+    if(revSensTotal == 0 && revPassByTotal == 6) 
+    {
+      revPassByState = true;
+      revPassByTotal = 0;
+    }
     else if(revSensTotal == 0) revPassByTotal = 0;
+
   return revSensTotal;
 }  // end readrevSen--
 
@@ -525,6 +582,7 @@ bool readAllSens() {
     sensBusy = true;
   }
   else sensBusy = false;
+
   return sensBusy;
 }
 
@@ -533,24 +591,30 @@ bool readAllSens() {
 
 byte rptMainDirection() 
   {      
-    if((mainSensTotal == 2) && (mainSens_Report = 2)) {
+    if((mainSensTotal == 2) && (mainSens_Report = 2)) 
+    {
       mainOutbound = 1;
       mainInbound = 0;
-      }
-    else if((mainSensTotal == 1) && (mainSens_Report = 1)) {
+    }
+    else if((mainSensTotal == 1) && (mainSens_Report = 1)) 
+    {
       mainOutbound = 0;
       mainInbound = 1;
-      }
-    if((mainDirection == 0) && (mainSensTotal == 0)) {
+    }
+
+    if((mainDirection == 0) && (mainSensTotal == 0)) 
+    {
       mainOutbound = 0;
       mainInbound = 0;
     } 
     
-    if(mainOutbound == 1){
+    if(mainOutbound == 1)
+    {
       mainLineDirection = 2;
       main_LastDirection = 2;
     }
-    if(mainInbound == 1){
+    if(mainInbound == 1)
+    {
       mainLineDirection = 1;
       main_LastDirection = 1;
     }
@@ -561,9 +625,9 @@ byte rptMainDirection()
     return mainLineDirection;
   }  //End function
 
-/*-----------------FUNCTION rptRevDirection()--------------------------
-    This function is the same as above, but reports on the Reverse Loop.
- --------------------------------------------------------------------*/
+//-----------------FUNCTION rptRevDirection()---------------------------
+//  This function is the same as above, but reports on the Reverse Loop.
+//----------------------------------------------------------------------
 
   byte rptRevDirection() 
   {
