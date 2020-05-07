@@ -98,6 +98,14 @@ int knobPosition = ROTARYMAX;
 bool knobToggle = true;       //active low 
 void readEncoder();           //--RotaryEncoder Function------------------
 
+//---Timer Variables---
+const long tortiTimerInterval = 2000;
+const long trainTimerInterval = 1000 * 8;
+
+
+
+
+
 //---------------SETUP STATE Machine and State Functions----------------------
 enum {HOUSEKEEP, STAND_BY, TRACK_SETUP, TRACK_ACTIVE, OCCUPIED,} mode;
 void runHOUSEKEEP();
@@ -147,11 +155,11 @@ int revPassByToZero = 1;
 
 
 //---Sensor Function Declarations---------------
-int readMainSens();
-int readRevSens();
+void readMainSens();
+void readRevSens();
 byte rptMainDirection();
 byte rptRevDirection();
-bool readAllSens();
+void readAllSens();
 //--end sensor functions---
 
 
@@ -189,24 +197,46 @@ void setup() {
 
 void loop() 
 {
+  readAllSens();
+  Serial.print("VOID LOOP RAS!---------------");
+  Serial.print(mainSensTotal);
+  Serial.println(revSensTotal);
+
     if (mode == HOUSEKEEP)
   {
+    readAllSens();
+    Serial.print("HOUSEKEEP RAS!---------------");
+    Serial.print(mainSensTotal);
+    Serial.println(revSensTotal);
     runHOUSEKEEP();
   }
 
   else if (mode == STAND_BY)
   {
+    readAllSens();
+    Serial.print("STANDB_BY RAS!---------------");
+    Serial.print(mainSensTotal);
+    Serial.println(revSensTotal);
+
     runSTAND_BY();
   }
 
   else if (mode == TRACK_SETUP)
   {
+    readAllSens();
+    Serial.print("SETUP RAS!----------");
+    Serial.print(mainSensTotal);
+    Serial.println(revSensTotal);
     
     runTRACK_SETUP();
   }
 
   else if (mode == TRACK_ACTIVE)
   {
+    readAllSens();
+    Serial.print("ACTIVE RAS!----------");
+    Serial.print(mainSensTotal);
+    Serial.println(revSensTotal);
     runTRACK_ACTIVE();
   }
 
@@ -331,19 +361,27 @@ do
 //-----------------------TRACK_SETUP Functions-----------------------
 void runTRACK_SETUP()
 {
-  //entry_ExitBusy = readAllSens();
+  readAllSens();
+  Serial.println("TRACK_SETUP--------------------");
+  Serial.print("run_SETUP RAS!------------------");
+  Serial.print(mainSensTotal);
+  Serial.println(revSensTotal);
   
-  Serial.println("----------TRACK_SETUP--------");
-  Serial.print("entry_ExitBusy: ");
-  Serial.println(entry_ExitBusy);
+    
+  unsigned long startTortiTime = millis();
+  while((millis() - startTortiTime) <= tortiTimerInterval)
+  {
+   Serial.println(millis() - startTortiTime);
+  }
+  
+  leaveTrack_Setup();
+  
+    
 
-  delay(3000);
+  //delay(3000);
     
   
-  Serial.print("entry_ExitBusy: ");
-  Serial.println(entry_ExitBusy);
-
-  leaveTrack_Setup();
+  
  
 
 }  //---end track setup function-------------------
@@ -351,8 +389,11 @@ void runTRACK_SETUP()
 
 void leaveTrack_Setup()
 {
-  if( entry_ExitBusy == true)
-  
+  readAllSens();
+  Serial.print("LEAVE SETUP RAS!----------------");
+  Serial.print(mainSensTotal);
+  Serial.println(revSensTotal);
+  if((mainSens_Report > 0) || (revSens_Report > 0))
   {
     Serial.println("----to OCCUPIED from Setup---");
     //mode = OCCUPIED;
@@ -360,8 +401,7 @@ void leaveTrack_Setup()
   }
   else 
   {
-    Serial.println("--times up going on--");
-
+    Serial.println("--times up--moving on--");
     mode = TRACK_ACTIVE;
     //runTRACK_ACTIVE();
   }
@@ -372,15 +412,24 @@ void leaveTrack_Setup()
 //-----------------------TRACK_ACTIVE Function------------------
 void runTRACK_ACTIVE()
 {
-  entry_ExitBusy = readAllSens();
-  Serial.println("---------------TRACK_ACTIVE-----");
-  Serial.print("entry_ExitBusy: ");
-  Serial.println(entry_ExitBusy);
+  readAllSens();
+  Serial.println("TRACK_ACTIVE------------------");
+  Serial.print("run_ACTIVE RAS!-------------");
+  Serial.print(mainSensTotal);
+  Serial.println(revSensTotal);
 
+  unsigned long startTrainTime = millis();
+  do
+  {
+   Serial.println((millis() - startTrainTime) / 1000);
+  } 
+  while ((millis() - startTrainTime) <= trainTimerInterval);
+  
+  
   
   
 
-  delay(10000);
+  //delay(10000);
 
   //TODO check for knobToggle - back to Standby if true
   //Serial.println("Check Click: ");
@@ -394,17 +443,21 @@ void runTRACK_ACTIVE()
 
 void leaveTrack_Active()
 {
-  if( entry_ExitBusy == true)
+  readAllSens();
+  Serial.print("run_ACTIVE RAS!---------------");
+  Serial.print(mainSensTotal);
+  Serial.println(revSensTotal);
+
+  if((mainSens_Report > 0) || (revSens_Report > 0))
   {
-    Serial.println("----to OCCUPIED from Active---");
-    mode = OCCUPIED;
-    
+    Serial.println("----to OCCUPIED from Setup---");
+    //mode = OCCUPIED;
+    runOCCUPIED();
   }
   else 
   {
-    Serial.println("--times up, going on from Track_Active----");
+    Serial.println("--times up going on--");
     mode = HOUSEKEEP;
-    runHOUSEKEEP();
   }
 }
 
@@ -412,21 +465,20 @@ void leaveTrack_Active()
 void runOCCUPIED()
 {
   Serial.println("OCCUPIED");
-  //delay(20);
-
-  entry_ExitBusy = readAllSens();
-  Serial.print("entry_ExitBusy: ");
-  Serial.println(entry_ExitBusy);
-
-  if( entry_ExitBusy == true)
+  delay(100);
+  readAllSens();
+  Serial.print("runOCCUPIED RAS!------------------");
+  Serial.print(mainSensTotal);
+  Serial.println(revSensTotal);
+  if((mainSens_Report > 0) || (revSens_Report > 0))
   {
-    Serial.println("----to OCCUPIED from OCCUPIED---");
+  Serial.println("----to OCCUPIED from OCCUPIED---");
     //mode = OCCUPIED;
     runOCCUPIED();
   }
   else 
   {    
-   Serial.println("-------LEAVING OCCUPIED----------------");
+   Serial.println("LEAVING OCCUPIED----------------");
    runSTAND_BY();
   }
   
@@ -470,7 +522,7 @@ void readEncoder()
 //  The remaining three work identically.
 //------------------------------end of note-----------------------
 
-int readMainSens() {
+void readMainSens() {
   debouncer1.update();  
   int mainInValue = debouncer1.read();
     
@@ -518,11 +570,10 @@ int readMainSens() {
        mainPassByTotal = 0;
       }
     else if(mainSensTotal == 0) mainPassByTotal = 0;
-       
-  return mainSensTotal;
+    
 }  // end readMainSen--
 
-int readRevSens() 
+void readRevSens() 
 {  
   debouncer3.update();
   int revInValue = debouncer3.read();
@@ -566,25 +617,14 @@ int readRevSens()
     }
     else if(revSensTotal == 0) revPassByTotal = 0;
 
-  return revSensTotal;
 }  // end readrevSen--
 
   
-bool readAllSens() {
-  bool sensBusy;
-  int sensMainBusy = 0;
-  int sensRevBusy = 0;
-
-  sensMainBusy = readMainSens();
-  sensRevBusy = readRevSens();
-
-  if(sensMainBusy > 0 || sensRevBusy >0){
-    sensBusy = true;
-  }
-  else sensBusy = false;
-
-  return sensBusy;
-}
+void readAllSens() 
+  {
+    readMainSens();
+    readRevSens();
+  }   
 
 
 //--------------------------------------------------
