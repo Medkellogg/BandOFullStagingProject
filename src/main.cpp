@@ -197,46 +197,47 @@ void setup() {
 
 void loop() 
 {
-  readAllSens();
-  Serial.print("VOID LOOP RAS!---------------");
-  Serial.print(mainSensTotal);
-  Serial.println(revSensTotal);
+  //Serial.println("---Passing Through Void---");
+  //readAllSens();
+  //Serial.print("VOID LOOP RAS!---------------");
+  //Serial.print(mainSensTotal);
+  //Serial.println(revSensTotal);
 
     if (mode == HOUSEKEEP)
   {
-    readAllSens();
-    Serial.print("HOUSEKEEP RAS!---------------");
-    Serial.print(mainSensTotal);
-    Serial.println(revSensTotal);
+    //readAllSens();
+    //Serial.print("HOUSEKEEP RAS!---------------");
+    //Serial.print(mainSensTotal);
+    //Serial.println(revSensTotal);
     runHOUSEKEEP();
   }
 
   else if (mode == STAND_BY)
   {
-    readAllSens();
-    Serial.print("STANDB_BY RAS!---------------");
-    Serial.print(mainSensTotal);
-    Serial.println(revSensTotal);
+    //readAllSens();
+    //Serial.print("STANDB_BY RAS!---------------");
+    //Serial.print(mainSensTotal);
+    //Serial.println(revSensTotal);
 
     runSTAND_BY();
   }
 
   else if (mode == TRACK_SETUP)
   {
-    readAllSens();
-    Serial.print("SETUP RAS!----------");
-    Serial.print(mainSensTotal);
-    Serial.println(revSensTotal);
+    //readAllSens();
+    //Serial.print("SETUP RAS!----------");
+    //Serial.print(mainSensTotal);
+    //Serial.println(revSensTotal);
     
     runTRACK_SETUP();
   }
 
   else if (mode == TRACK_ACTIVE)
   {
-    readAllSens();
-    Serial.print("ACTIVE RAS!----------");
-    Serial.print(mainSensTotal);
-    Serial.println(revSensTotal);
+    //readAllSens();
+    //Serial.print("ACTIVE RAS!----------");
+    //Serial.print(mainSensTotal);
+    //Serial.println(revSensTotal);
     runTRACK_ACTIVE();
   }
 
@@ -314,7 +315,7 @@ void runHOUSEKEEP()
 {
   
   Serial.println();
-  Serial.println("HOUSEKEEP-------------------------");
+  Serial.println("-----------------------------------------HOUSEKEEP---");
 
   railPower = OFF;
   //Serial.print("railPower Status: ");
@@ -333,22 +334,24 @@ void runHOUSEKEEP()
 //-----------------------STAND_BY Function-----------------
 void runSTAND_BY()
 {
-  Serial.println("-----STAND_BY");
-
-  
-  
+  Serial.println("-----------------------------------------STAND_BY---");
 do
   {
-    
     readEncoder();
    
     knobToggle = digitalRead(rotarySwitch);
-    
+    readAllSens();
+
+    if((mainSens_Report > 0) || (revSens_Report > 0))
+    {
+      Serial.println("---to OCCUPIED from STAND_BY---");
+      mode = OCCUPIED;
+    } 
     mode = STAND_BY;
+  }
+  while (knobToggle == true);    //check rotary switch pressed to select a track (active low)
 
-  } while (knobToggle == true);    //check rotary switch pressed to select a track (active low)
-
-  knobToggle = true;               //reset so readEncoder will run in stand_by next pass
+  knobToggle = true;               //---eset so readEncoder will run in stand_by next pass
 
   
 
@@ -362,16 +365,17 @@ do
 void runTRACK_SETUP()
 {
   readAllSens();
-  Serial.println("TRACK_SETUP--------------------");
-  Serial.print("run_SETUP RAS!------------------");
-  Serial.print(mainSensTotal);
-  Serial.println(revSensTotal);
+  Serial.println("-----------------------------------------TRACK_SETUP---");
+ // Serial.print("run_SETUP RAS!------------------");
+  //Serial.print(mainSensTotal);
+  //Serial.println(revSensTotal);
   
     
   unsigned long startTortiTime = millis();
   while((millis() - startTortiTime) <= tortiTimerInterval)
   {
-   Serial.println(millis() - startTortiTime);
+   //Serial.println(millis() - startTortiTime);
+   readAllSens();
   }
   
   leaveTrack_Setup();
@@ -389,19 +393,20 @@ void runTRACK_SETUP()
 
 void leaveTrack_Setup()
 {
+  Serial.println("---Entering leaveTrack_Setup---");
   readAllSens();
-  Serial.print("LEAVE SETUP RAS!----------------");
-  Serial.print(mainSensTotal);
-  Serial.println(revSensTotal);
+ // Serial.print("LEAVE SETUP RAS! IN leaveTrack_setup--------");
+  //Serial.print(mainSensTotal);
+  //Serial.println(revSensTotal);
   if((mainSens_Report > 0) || (revSens_Report > 0))
   {
-    Serial.println("----to OCCUPIED from Setup---");
-    //mode = OCCUPIED;
-    runOCCUPIED();
+    Serial.println("---to OCCUPIED from leaveTrack_Setup---");
+    mode = OCCUPIED;
+    //runOCCUPIED();
   }
   else 
   {
-    Serial.println("--times up--moving on--");
+    Serial.println("--times up--leaving TrackSetup--");
     mode = TRACK_ACTIVE;
     //runTRACK_ACTIVE();
   }
@@ -413,15 +418,18 @@ void leaveTrack_Setup()
 void runTRACK_ACTIVE()
 {
   readAllSens();
-  Serial.println("TRACK_ACTIVE------------------");
-  Serial.print("run_ACTIVE RAS!-------------");
-  Serial.print(mainSensTotal);
-  Serial.println(revSensTotal);
+  Serial.println("-----------------------------------------TRACK_ACTIVE---");
+  //Serial.print("run_ACTIVE RAS!-------------");
+  //Serial.print(mainSensTotal);
+  //Serial.println(revSensTotal);
 
   unsigned long startTrainTime = millis();
   do
   {
-   Serial.println((millis() - startTrainTime) / 1000);
+   //Serial.println((millis() - startTrainTime) / 1000);
+   readAllSens();
+
+
   } 
   while ((millis() - startTrainTime) <= trainTimerInterval);
   
@@ -444,19 +452,19 @@ void runTRACK_ACTIVE()
 void leaveTrack_Active()
 {
   readAllSens();
-  Serial.print("run_ACTIVE RAS!---------------");
-  Serial.print(mainSensTotal);
-  Serial.println(revSensTotal);
+  //Serial.print("run_ACTIVE RAS!---------------");
+  //Serial.print(mainSensTotal);
+  //Serial.println(revSensTotal);
 
   if((mainSens_Report > 0) || (revSens_Report > 0))
   {
-    Serial.println("----to OCCUPIED from Setup---");
-    //mode = OCCUPIED;
-    runOCCUPIED();
+    Serial.println("----to OCCUPIED from leavTrack_Active---");
+    mode = OCCUPIED;
+    //runOCCUPIED();
   }
   else 
   {
-    Serial.println("--times up going on--");
+    Serial.println("--times up leaving TrackActive--");
     mode = HOUSEKEEP;
   }
 }
@@ -465,21 +473,22 @@ void leaveTrack_Active()
 void runOCCUPIED()
 {
   Serial.println("OCCUPIED");
-  delay(100);
   readAllSens();
-  Serial.print("runOCCUPIED RAS!------------------");
-  Serial.print(mainSensTotal);
-  Serial.println(revSensTotal);
+  delay(100);
+  //Serial.print("runOCCUPIED RAS!------------------");
+  //Serial.print(mainSensTotal);
+  //Serial.println(revSensTotal);
   if((mainSens_Report > 0) || (revSens_Report > 0))
   {
   Serial.println("----to OCCUPIED from OCCUPIED---");
-    //mode = OCCUPIED;
-    runOCCUPIED();
+  mode = OCCUPIED;
+  //runOCCUPIED();
   }
   else 
   {    
-   Serial.println("LEAVING OCCUPIED----------------");
-   runSTAND_BY();
+   Serial.println("--Condition false:  Leaving Occupied-----");
+   mode = STAND_BY;
+   //runSTAND_BY();
   }
   
   
