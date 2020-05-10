@@ -99,7 +99,7 @@ bool knobToggle = true;       //active low
 void readEncoder();           //--RotaryEncoder Function------------------
 
 //---Timer Variables---
-const long tortiTimerInterval = 2000 * 2;
+const long tortiTimerInterval = 1000 * 4;
 const long trainTimerInterval = 1000 * 10;
 
 
@@ -126,32 +126,26 @@ byte mainPassByState = false, mainPassByTotal = 0;
 byte mainInValue = 1, mainIn_LastValue = 1; 
 byte mainOutValue = 1, mainOut_LastValue = 1;
 byte main_LastDirection = 0;
-byte mainLineDirection = 0;
-byte getMainDirection = 0;
 byte mainDirection = 0;
-bool mainOutbound = 0;
-bool mainInbound = 0;
 
 byte revSensTotal = 0, revSens_Report = 0; 
-byte revPassByState = false, revPassByTotal = 0;
-byte revInValue = 1, revIn_LastValue = 1; 
+byte revPassByState = false; 
+byte revPassByTotal = 0;
+byte revInValue = 1;
+byte revIn_LastValue = 1; 
 byte revOutValue = 1, revOut_LastValue = 1;
-byte revLoopDirection = 0;
-byte rev_LastDirection = 0;
-byte getRevLoopDirection = 0;
 byte revDirection = 0;
-bool revOutbound = 0;
-bool revInbound = 0;
+byte rev_LastDirection = 0;
 
 bool entry_ExitBusy = false;
 //----end of sensor variables
 
-//DEBUG SECTION
+/*DEBUG SECTION
 const int mainPassByOff = 7;  // green wire main
 int mainPassByToZero = 1;
 const int revPassByOff = 8;  // wht wire rev
 int revPassByToZero = 1;
-//----END DEBUG---------------
+//----END DEBUG--------------- */
 
 
 //---Sensor Function Declarations---------------
@@ -177,9 +171,9 @@ void setup() {
   debouncer3.interval(5); debouncer4.interval(5); 
 
 //DEBUG Section - these are manual switches until functions are ready
-  pinMode(mainPassByOff, INPUT_PULLUP);
-  pinMode(revPassByOff, INPUT_PULLUP);
-  pinMode(LED_PIN, OUTPUT);
+  //pinMode(mainPassByOff, INPUT_PULLUP);
+  //pinMode(revPassByOff, INPUT_PULLUP);
+  //pinMode(LED_PIN, OUTPUT);
   //----END DEBUG---------------
 
   encoder.setPosition(ROTARYMIN / ROTARYSTEPS); // start with the value of ROTARYMIN 
@@ -195,7 +189,6 @@ void setup() {
 //--------------------------------------------------------------//
 //                            Void Loop                         //
 //--------------------------------------------------------------//
-
 
 void loop() 
 {
@@ -224,56 +217,39 @@ void loop()
     runOCCUPIED();
   }
   
-
-  /*---debug-Check new sensor module
-  entry_ExitBusy = readAllSens();
-  getMainDirection = rptMainDirection();
-  getRevLoopDirection = rptRevDirection();
-  
-  mainPassByToZero = digitalRead(mainPassByOff);  //debug
-
-    if(mainPassByToZero == 0){
-       mainPassByState = 0;
-      }
-
-  revPassByToZero = digitalRead(revPassByOff);  //debug
-
-    if(revPassByToZero == 0){
-       revPassByState = 0;
-      }  
-    */
   //----debug terminal print----------------
-      /*
-      Serial.print("mainOutValue: ");
-      Serial.print(mainOutValue);
-      Serial.print("        revOutValue: ");
-      Serial.println(revOutValue);
-      Serial.print("mainSens_Report: ");
-      Serial.print(mainSens_Report);
-      Serial.print("     revSens_Report: ");
-      Serial.println(revSens_Report);
-      */Serial.print("mainSensTotal: ");
+      
+      //Serial.print("mainOutValue: ");
+      //Serial.print(mainOutValue);
+      //Serial.print("        revOutValue: ");
+      //Serial.println(revOutValue);
+      //Serial.print("mainSens_Report: ");
+      //Serial.print(mainSens_Report);
+      //Serial.print("     revSens_Report: ");
+      //Serial.println(revSens_Report);
+      Serial.print("mainSensTotal:      ");
       Serial.print(mainSensTotal);
-      Serial.print("       revSensTotal: ");
+      Serial.print("           revSensTotal:  ");
       Serial.println(revSensTotal);
-      Serial.print("mainPassByTotal: ");
-      Serial.print(mainPassByTotal);
-      Serial.print("     revPassByTotal: ");
-      Serial.println(revPassByTotal); 
-      Serial.print("mainPassByState: ");
+      //Serial.print("mainPassByTotal: ");
+      //Serial.print(mainPassByTotal);
+      /////Serial.print("     revPassByTotal: ");
+      /////Serial.println(revPassByTotal); 
+      Serial.print("mainPassByState:    ");
       Serial.print(mainPassByState);
-      Serial.print("     revPassByState: ");
-      Serial.println(revPassByState); /*
-      Serial.print("entryExitBusy: ");
-      Serial.println(entry_ExitBusy); 
-      */Serial.print("mainLineDirection: ");
-      Serial.print(mainLineDirection);  
-      Serial.print("   revLoopDirection: ");
-      Serial.println(revLoopDirection);  
-      /*Serial.print("main_LastDirection: ");
+      Serial.print("          revPassByState: ");
+      Serial.println(revPassByState); 
+      //Serial.print("entryExitBusy: ");
+      //Serial.println(entry_ExitBusy); 
+      //Serial.print("mainDirection: ");
+      //Serial.print(mainDirection);  
+      //Serial.print("   revDirection: ");
+      //Serial.println(revDirection);  
+      Serial.print("main_LastDirection: ");
       Serial.print(main_LastDirection);
-      Serial.print("   rev_lastDirection: ");
+      Serial.print("       rev_lastDirection: ");
       Serial.println(rev_LastDirection);
+      /*
       Serial.println();
       Serial.println("=======Report Starts Here!=======");
       delay(307);
@@ -306,12 +282,11 @@ void runHOUSEKEEP()
   mode = STAND_BY;
 }  
 
-
 //-----------------------STAND_BY Function-----------------
 void runSTAND_BY()
 {
   Serial.println("-----------------------------------------STAND_BY---");
-do
+  do
   {
     readEncoder();
    
@@ -377,20 +352,23 @@ void runTRACK_ACTIVE()
 {
   readAllSens();
   Serial.println("-----------------------------------------TRACK_ACTIVE---");
+  rev_LastDirection = 0; //reset for use during the next TRACK_ACTIVE call
+  main_LastDirection = 0;
  
   unsigned long startTrainTime = millis();
   do
   {
      readAllSens();
-     //rptMainDirection();
-     //rptRevDirection();
-     Serial.print("mainPassByState:");
-     Serial.println(mainPassByState);
-     //if(mainPassByState == true){
-      //mode = HOUSEKEEP;
-
+     //---debug     
+     Serial.print("main_LastDirection: ");
+     Serial.print(rev_LastDirection);
+     Serial.println(main_LastDirection);
+     Serial.println("-----Waiting for Train to Exit!");
+     //debug
+     
         //--true when outbound train completely leaves sensor  
-    if ((mainPassByState == true)  || (revPassByState == true))           
+    if ((mainPassByState == 1) && (main_LastDirection == 2) ||
+         (rev_LastDirection == 2) && (revPassByState == 1))           
     {
       startTrainTime = startTrainTime + trainTimerInterval;  //adds time to startTrainTime to force end of while loop
     }
@@ -412,7 +390,6 @@ void leaveTrack_Active()
   {
     Serial.println("----to OCCUPIED from leavTrack_Active---");
     mode = OCCUPIED;
-    //runOCCUPIED();
   }
   else 
   {
@@ -426,22 +403,16 @@ void runOCCUPIED()
 {
   Serial.println("OCCUPIED");
   readAllSens();
-  //delay(100);
-  
+    
   if((mainSens_Report > 0) || (revSens_Report > 0))
   {
-  Serial.println("----to OCCUPIED from OCCUPIED---");
-  mode = OCCUPIED;
+    Serial.println("----to OCCUPIED from OCCUPIED---");
+    mode = OCCUPIED;
   }
   else 
   {    
-   Serial.println("--Condition false:  Leaving Occupied-----");
-   mode = STAND_BY;
-   //runSTAND_BY();
+    mode = STAND_BY;
   }
-  
-  
-     
 }
 
 //------------------------ReadEncoder Function----------------------
@@ -491,7 +462,8 @@ void readMainSens() {
 
       mainIn_LastValue = mainInValue;
 
-      if (mainSens_Report > 0) {
+      if (mainSens_Report > 0) 
+      {
         mainSensTotal = mainSensTotal + mainSens_Report;
         mainPassByTotal = mainSensTotal;
       }
@@ -510,7 +482,8 @@ void readMainSens() {
       mainOut_LastValue = mainOutValue;
 
       //---add running total to "*"SensTotal to track PassBy status
-      if (mainSens_Report > 0) {
+      if (mainSens_Report > 0) 
+      {
         mainSensTotal = mainSensTotal + mainSens_Report;
         mainPassByTotal = mainSensTotal;
       }
@@ -527,11 +500,30 @@ void readMainSens() {
        mainPassByTotal = 0;
       }
     else if(mainSensTotal == 0) mainPassByTotal = 0;
+
+    //--report mainLine Direction
+    if((mainSensTotal == 2) && (mainSens_Report == 2)) 
+    { 
+      mainDirection = 2;
+      main_LastDirection = 2;
+    }
+    else if((mainSensTotal == 1) && (mainSens_Report == 1)) 
+    {
+      mainDirection = 1;
+      main_LastDirection = 1;
+    }
+    if((mainSensTotal == 0) && (mainSens_Report == 0)) 
+    {
+     mainDirection = 0;
+    } 
     
 }  // end readMainSen--
 
 void readRevSens() 
-{  
+{ 
+  //byte revPassByTotal = 0;
+  //byte revDirection = 0;
+
   debouncer3.update();
   int revInValue = debouncer3.read();
     
@@ -574,6 +566,22 @@ void readRevSens()
     }
     else if(revSensTotal == 0) revPassByTotal = 0;
 
+    //--report revLoop Direction
+    if((revSensTotal == 2) && (revSens_Report == 2)) 
+    {
+      revDirection = 2;
+      rev_LastDirection = 2;
+    }
+    else if((revSensTotal == 1) && (revSens_Report == 1)) 
+    {
+      revDirection = 1;
+      rev_LastDirection = 1;
+    }
+    if((revSensTotal == 0) && (revSens_Report == 0)) 
+    {
+      revDirection = 0;
+    }
+
 }  // end readrevSen--
 
   
@@ -586,68 +594,3 @@ void readAllSens()
 
 //--------------------------------------------------
 
-void rptMainDirection() 
-  {      
-    if((mainSensTotal == 2) && (mainSens_Report = 2)) 
-    {
-      mainOutbound = 1;
-      mainInbound = 0;
-    }
-    else if((mainSensTotal == 1) && (mainSens_Report = 1)) 
-    {
-      mainOutbound = 0;
-      mainInbound = 1;
-    }
-
-    if((mainDirection == 0) && (mainSensTotal == 0)) 
-    {
-      mainOutbound = 0;
-      mainInbound = 0;
-    } 
-    
-    if(mainOutbound == 1)
-    {
-      mainLineDirection = 2;
-      main_LastDirection = 2;
-    }
-    if(mainInbound == 1)
-    {
-      mainLineDirection = 1;
-      main_LastDirection = 1;
-    }
-    if((mainOutbound == 0) && (mainInbound == 0)){
-     mainLineDirection = 0;
-    }
-  }  //End function
-
-//-----------------FUNCTION rptRevDirection()---------------------------
-//  This function is the same as above, but reports on the Reverse Loop.
-//----------------------------------------------------------------------
-
-  void rptRevDirection() 
-  {
-    if((revSensTotal == 2) && (revSens_Report = 2)) {
-      revOutbound = 1;
-      revInbound = 0;
-      }
-    else if((revSensTotal == 1) && (revSens_Report = 1)) {
-      revOutbound = 0;
-      revInbound = 1;
-      }
-    if((revDirection == 0) && (revSensTotal == 0)) {
-      revOutbound = 0;
-      revInbound = 0;
-      }
-    
-    if(revOutbound == 1){
-      revLoopDirection = 2;
-      rev_LastDirection = 2;
-    }
-    if(revInbound == 1){
-      revLoopDirection = 1;
-      rev_LastDirection = 1;
-    }
-    if((revOutbound == 0) && (revInbound == 0)){
-     revLoopDirection = 0;
-    }
-  }  //End function   
