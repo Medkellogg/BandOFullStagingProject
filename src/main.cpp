@@ -142,9 +142,10 @@ bool entry_ExitBusy = false;
 
 /*DEBUG SECTION
 const int mainPassByOff = 7;  // green wire main
-int mainPassByToZero = 1;
-const int revPassByOff = 8;  // wht wire rev
-int revPassByToZero = 1;
+int mainPassByToZero = 1; */
+const int leaveTtimer = 8;  // wht wire rev
+byte bailOut = 1;  //active low
+//int revPassByToZero = 1;
 //----END DEBUG--------------- */
 
 
@@ -172,7 +173,7 @@ void setup() {
 
 //DEBUG Section - these are manual switches until functions are ready
   //pinMode(mainPassByOff, INPUT_PULLUP);
-  //pinMode(revPassByOff, INPUT_PULLUP);
+  pinMode(leaveTtimer, INPUT_PULLUP);
   //pinMode(LED_PIN, OUTPUT);
   //----END DEBUG---------------
 
@@ -359,6 +360,7 @@ void runTRACK_ACTIVE()
   do
   {
      readAllSens();
+     bailOut = digitalRead(leaveTtimer);
      //---debug     
      Serial.print("main_LastDirection: ");
      Serial.print(rev_LastDirection);
@@ -367,10 +369,17 @@ void runTRACK_ACTIVE()
      //debug
      
         //--true when outbound train completely leaves sensor  
-    if ((mainPassByState == 1) && (main_LastDirection == 2) ||
-         (rev_LastDirection == 2) && (revPassByState == 1))           
+    if (((mainPassByState == 1) && (main_LastDirection == 2)) ||
+         ((rev_LastDirection == 2) && (revPassByState == 1)))           
     {
-      startTrainTime = startTrainTime + trainTimerInterval;  //adds time to startTrainTime to force end of while loop
+      break;
+      //startTrainTime = startTrainTime + trainTimerInterval;  //adds time to startTrainTime to force end of while loop
+    }
+
+    if(bailOut == 0)
+    {
+      break;
+      //startTrainTime = startTrainTime + trainTimerInterval;
     }
     
   }
