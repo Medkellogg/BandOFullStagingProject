@@ -53,6 +53,10 @@
 #include <Arduino.h>
 #include <RotaryEncoder.h>
 #include <Bounce2.h>
+#include <SPI.h>
+#include <Wire.h>
+#include <Adafruit_GFX.h>
+#include <Adafruit_SSD1306.h>
 
 //------------Setup sensor debounce from Bounce2 library-----
 #define mainSensInpin 11
@@ -68,9 +72,18 @@
 
 #define LED_PIN 13  //debug
 
+
 // Instantiate a Bounce object
 Bounce debouncer1 = Bounce(); Bounce debouncer2 = Bounce(); 
 Bounce debouncer3 = Bounce(); Bounce debouncer4 = Bounce();
+
+//------------Set up OLED Screen-----
+#define SCREEN_WIDTH 128 // OLED display width, in pixels
+#define SCREEN_HEIGHT 64 // OLED display height, in pixels
+
+//-------Declaration for an SSD1306 display - using I2C (SDA, SCL pins)
+//#define OLED_RESET     4 // Reset pin # (or -1 if sharing Arduino reset pin)
+//Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 //--RotaryEncoder DEFINEs for numbers of tracks to access with encoder
 #define ROTARYSTEPS 1
@@ -83,18 +96,18 @@ Bounce debouncer3 = Bounce(); Bounce debouncer4 = Bounce();
 
 //--- Setup a RotaryEncoder for pins A2 and A3:
 RotaryEncoder encoder(A2, A3);
-int lastPos = -1;                //--- Last known rotary position.
+byte lastPos = -1;                //--- Last known rotary position.
 const int rotarySwitch = 2;      //---Setup Rotary Encoder switch on 
                                  //   pin D2 - active low ----------- 
 
 //------RotaryEncoder Setup and variables are in this section---------
-int tracknumChoice =  ROTARYMAX;
-int tracknumActive =  ROTARYMAX;
-int tracknumDisplay =  ROTARYMAX;
-int tracknumLast =  ROTARYMAX;
+byte tracknumChoice =  ROTARYMAX;
+byte tracknumActive =  ROTARYMAX;
+byte tracknumDisplay =  ROTARYMAX;
+byte tracknumLast =  ROTARYMAX;
 
 //Rotary Encoder Switch Variables
-int knobPosition = ROTARYMAX;
+byte knobPosition = ROTARYMAX;
 bool knobToggle = true;       //active low 
 void readEncoder();           //--RotaryEncoder Function------------------
 
@@ -103,8 +116,8 @@ const long tortiTimerInterval = 1000 * 4;
 const long trainTimerInterval = 1000 * 10;
 
 
-
-
+//---------------------OLED Display Functions------------------//
+void bandoText(String text, int x, int y, int size, boolean d);
 
 //---------------SETUP STATE Machine and State Functions----------------------
 enum {HOUSEKEEP, STAND_BY, TRACK_SETUP, TRACK_ACTIVE, OCCUPIED,} mode;
@@ -116,6 +129,7 @@ void runOCCUPIED();
 
 void leaveTrack_Setup();
 void leaveTrack_Active();
+
 
 //---State Machine Variables
 byte railPower = ON;
@@ -158,9 +172,25 @@ void readAllSens();
 //--end sensor functions---
 
 
-// ---------------------------Void Setup------------------------------------
-void setup() {
+//--------------------------------------------------------------//
+//                         void setup()                         //
+//--------------------------------------------------------------//
+
+void setup() 
+{
+  Serial.begin(115200);
+  Serial.println("---ANOTHER INOVATIVE PRODUCT FROM THE B&O McKENZIE DIVISION---");
   
+  /*if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
+      Serial.println(F("SSD1306 allocation failed"));
+      for (;;); // Don't proceed, loop forever
+    }
+  
+  display.clearDisplay();
+  display.drawPixel(10, 10, SSD1306_WHITE);
+  */
+
+
   //---Setup the button (using external pull-up) :
   pinMode(mainSensInpin, INPUT); pinMode(mainSensOutpin, INPUT);
   pinMode(revSensInpin, INPUT);  pinMode(revSensOutpin, INPUT);
@@ -182,13 +212,21 @@ void setup() {
   pinMode(rotarySwitch, INPUT_PULLUP);
   mode = HOUSEKEEP;
 
-  Serial.begin(115200);
-  Serial.println("---ANOTHER INOVATIVE PRODUCT FROM THE B&O McKENZIE DIVISION---");
+  //display.clearDisplay();
+  //display.drawPixel(10, 10, SSD1306_WHITE);
+
+  /*display.clearDisplay();
+  bandoText("B&O RAILROAD",0,0,2,false);
+  bandoText("ANOTHER INOVATIVE PRODUCT FROM THE B&O McKENZIE DIVISION",20,0,1,true);
+  display.display();
+  */
+  
+
   
 }  //End setup
 
 //--------------------------------------------------------------//
-//                            Void Loop                         //
+//                          void loop()                         //
 //--------------------------------------------------------------//
 
 void loop() 
@@ -600,6 +638,19 @@ void readAllSens()
     readRevSens();
   }   
 
-
+// ------------------Display Functions Section-------------------//
+//                          BEGINS HERE                          //
+//---------------------------------------------------------------//
+/*
+void bandoText(String text, int x, int y, int size, boolean d){
+  display.setTextSize(size);
+  display.setTextColor(WHITE);
+  display.setCursor(x,y);
+  display.println(text);
+  if(d){
+    display.display();
+  }
+}
+*/
 //--------------------------------------------------
 
