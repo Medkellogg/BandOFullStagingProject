@@ -82,13 +82,13 @@ Bounce debouncer3 = Bounce(); Bounce debouncer4 = Bounce();
 #define SCREEN_HEIGHT 64 // OLED display height, in pixels
 
 //-------Declaration for an SSD1306 display - using I2C (SDA, SCL pins)
-//#define OLED_RESET     4 // Reset pin # (or -1 if sharing Arduino reset pin)
-//Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
+#define OLED_RESET     4 // Reset pin # (or -1 if sharing Arduino reset pin)
+Adafruit_SSD1306 display(SCREEN_WIDTH, SCREEN_HEIGHT, &Wire, OLED_RESET);
 
 //--RotaryEncoder DEFINEs for numbers of tracks to access with encoder
 #define ROTARYSTEPS 1
-#define ROTARYMIN 7
-#define ROTARYMAX 12
+#define ROTARYMIN 1
+#define ROTARYMAX 13
 
 
 
@@ -179,18 +179,13 @@ void readAllSens();
 void setup() 
 {
   Serial.begin(115200);
-  Serial.println("---ANOTHER INOVATIVE PRODUCT FROM THE B&O McKENZIE DIVISION---");
   
-  /*if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
+  
+  if (!display.begin(SSD1306_SWITCHCAPVCC, 0x3C)) { // Address 0x3D for 128x64
       Serial.println(F("SSD1306 allocation failed"));
       for (;;); // Don't proceed, loop forever
     }
   
-  display.clearDisplay();
-  display.drawPixel(10, 10, SSD1306_WHITE);
-  */
-
-
   //---Setup the button (using external pull-up) :
   pinMode(mainSensInpin, INPUT); pinMode(mainSensOutpin, INPUT);
   pinMode(revSensInpin, INPUT);  pinMode(revSensOutpin, INPUT);
@@ -210,16 +205,18 @@ void setup()
   encoder.setPosition(ROTARYMIN / ROTARYSTEPS); // start with the value of ROTARYMIN 
 
   pinMode(rotarySwitch, INPUT_PULLUP);
-  mode = HOUSEKEEP;
+  //mode = HOUSEKEEP;
 
-  //display.clearDisplay();
-  //display.drawPixel(10, 10, SSD1306_WHITE);
 
-  /*display.clearDisplay();
-  bandoText("B&O RAILROAD",0,0,2,false);
-  bandoText("ANOTHER INOVATIVE PRODUCT FROM THE B&O McKENZIE DIVISION",20,0,1,true);
+  display.clearDisplay();
+  bandoText("B&O RAIL",25,0,2,false);
+  bandoText("JEROEN GARRITSEN'S",8,20,1,true);
+  bandoText("McKENZIE",0,33,2,true);
+  bandoText("DIVISION",30,50,2,true);
   display.display();
-  */
+  delay(3000);
+  display.clearDisplay();
+  
   
 
   
@@ -288,6 +285,8 @@ void loop()
       Serial.print(main_LastDirection);
       Serial.print("       rev_lastDirection: ");
       Serial.println(rev_LastDirection);
+      Serial.print("       tracknumActive: ");
+      Serial.println(tracknumActive);
       /*
       Serial.println();
       Serial.println("=======Report Starts Here!=======");
@@ -306,7 +305,6 @@ void loop()
 //--------------------HOUSEKEEP Function-----------------
 void runHOUSEKEEP()
 {
-  
   Serial.println();
   Serial.println("-----------------------------------------HOUSEKEEP---");
 
@@ -314,7 +312,18 @@ void runHOUSEKEEP()
   //Serial.print("railPower Status: ");
   //Serial.println(railPower);
 
-  tracknumChoice = tracknumActive;
+  tracknumChoice = tracknumLast;
+
+    enum {BufSize=3};  
+    char buf[BufSize];
+    snprintf (buf, BufSize, "%2d", tracknumLast);
+    display.clearDisplay();
+    bandoText("SELECT NOW",0,0,2,false);
+    bandoText("TRACK",0,20,2,false);
+    bandoText(buf,80,20,2,false);
+    bandoText("PUSH BUTTON TO SELECT",0,46,1,false);
+    bandoText("TRACK POWER  -OFF-",0,56,1,true);
+
   
   //Serial.println(tracknumActive);
   //delay(1000);
@@ -324,21 +333,34 @@ void runHOUSEKEEP()
 //-----------------------STAND_BY Function-----------------
 void runSTAND_BY()
 {
+    
+    
   Serial.println("-----------------------------------------STAND_BY---");
   do
   {
     readEncoder();
    
     knobToggle = digitalRead(rotarySwitch);
+
+
+    
     
     readAllSens();
     if((mainSens_Report > 0) || (revSens_Report > 0))
     {
       Serial.println("---to OCCUPIED from STAND_BY---");
-      mode = OCCUPIED;
-    }
+      
+      //display.clearDisplay();
+      //bandoText("YARD LEAD",0,0,2,false);
+      //bandoText("OCCUPIED",0,20,2,true);
 
-    mode = STAND_BY;
+      //mode = OCCUPIED;
+      runOCCUPIED();
+    }
+    else
+    {
+      mode = STAND_BY;
+    }
   }
   while (knobToggle == true);    //check rotary switch pressed to select a track (active low)
 
@@ -352,10 +374,24 @@ void runSTAND_BY()
 void runTRACK_SETUP()
 {
   readAllSens();
-  
+
   Serial.println("-----------------------------------------TRACK_SETUP---");
   tracknumActive = tracknumChoice;  
   tracknumLast = tracknumActive;
+
+  display.clearDisplay();
+  enum {BufSize=3};  
+  char buf[BufSize];
+  snprintf (buf, BufSize, "%2d", tracknumActive);
+  display.clearDisplay();
+  bandoText("ALIGNING",0,0,2,false);
+  bandoText("TRACK",0,20,2,false);
+  bandoText(buf,80,20,2,false);
+  bandoText("HAVE A NICE DAY",0,46,1,false);
+  bandoText("TRACK POWER  -OFF-",0,56,1,true);
+  
+
+  
   
   unsigned long startTortiTime = millis();
   while((millis() - startTortiTime) <= tortiTimerInterval)
@@ -390,6 +426,12 @@ void leaveTrack_Setup()
 void runTRACK_ACTIVE()
 {
   readAllSens();
+    display.clearDisplay();
+    bandoText("PROCEED ",20,0,2,false);
+    bandoText("TIMER ON",0,20,2,false);
+    //bandoText("3 MINUTE TIMER -ON-",0,46,1,false);
+    bandoText("TRACK POWER  -ON-",0,56,1,true);
+
   Serial.println("-----------------------------------------TRACK_ACTIVE---");
   rev_LastDirection = 0; //reset for use during the next TRACK_ACTIVE call
   main_LastDirection = 0;
@@ -410,6 +452,7 @@ void runTRACK_ACTIVE()
     if (((mainPassByState == 1) && (main_LastDirection == 2)) ||
          ((rev_LastDirection == 2) && (revPassByState == 1)))           
     {
+      
       break;
       //startTrainTime = startTrainTime + trainTimerInterval;  //adds time to startTrainTime to force end of while loop
     }
@@ -449,17 +492,25 @@ void leaveTrack_Active()
 void runOCCUPIED()
 {
   Serial.println("OCCUPIED");
-  readAllSens();
+
+  display.clearDisplay();
+  
+  //bandoText("PUSH BUTTON TO SELECT",0,46,1,false);
+  //bandoText("TRACK POWER  -ON-",0,56,1,true);
     
-  if((mainSens_Report > 0) || (revSens_Report > 0))
+  while((mainSens_Report > 0) || (revSens_Report > 0))
   {
+    
+    readAllSens();
     Serial.println("----to OCCUPIED from OCCUPIED---");
-    mode = OCCUPIED;
+    bandoText("YARD LEAD",0,0,2,false);
+    bandoText("OCCUPIED",0,20,2,false);
+    bandoText("STOP!",20,42,2,true);
+    //mode = OCCUPIED;
   }
-  else 
-  {    
-    mode = STAND_BY;
-  }
+   
+  Serial.println("----Leaving OCCUPIED---");
+  runHOUSEKEEP();
 }
 
 //------------------------ReadEncoder Function----------------------
@@ -484,6 +535,19 @@ void readEncoder()
     if (lastPos != newPos) {
       Serial.print(newPos);
       Serial.println();
+      display.clearDisplay();
+      delay(20);
+
+      enum {BufSize=3};  
+      char buf[BufSize];
+      snprintf (buf, BufSize, "%2d", newPos);
+  
+      bandoText("SELECT NOW",0,0,2,false);
+      bandoText("TRACK",0,20,2,false);
+      bandoText(buf,80,20,2,false);
+      bandoText("PUSH BUTTON TO SELECT",0,46,1,false);
+      bandoText("TRACK POWER  -OFF-",0,56,1,true);
+    
       lastPos = newPos;
       tracknumChoice = newPos;
     }
@@ -641,7 +705,7 @@ void readAllSens()
 // ------------------Display Functions Section-------------------//
 //                          BEGINS HERE                          //
 //---------------------------------------------------------------//
-/*
+
 void bandoText(String text, int x, int y, int size, boolean d){
   display.setTextSize(size);
   display.setTextColor(WHITE);
@@ -651,6 +715,6 @@ void bandoText(String text, int x, int y, int size, boolean d){
     display.display();
   }
 }
-*/
+
 //--------------------------------------------------
 
